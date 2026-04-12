@@ -64,7 +64,7 @@ npm install
 npm run dev
 ```
 
-> **Windows Users:** Download [`streamlink.exe`](https://github.com/streamlink/streamlink/releases), [`ffmpeg.exe`](https://ffmpeg.org/download.html), and `ffprobe.exe` and place them in `resources/bin/`.
+> **Windows Users:** Download [`yt-dlp`](https://github.com/yt-dlp/yt-dlp/releases), [`ffmpeg gpl-X.X.zip `](https://github.com/btbn/ffmpeg-builds/releases), and `ffprobe.exe` and place them in `resources/bin/`.
 
 ---
 
@@ -87,8 +87,7 @@ streamvault/
 
 - [x] Twitch · YouTube · Kick recording
 - [x] Local SQLite storage
-- [ ] Lossless clip trimming
-- [ ] Multi-track timeline editor via [Remotion](https://www.remotion.dev)
+- [ ] NLE Editor + Clip Creation
 - [ ] Additional platform support
 
 ---
