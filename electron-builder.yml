@@ -1,0 +1,42 @@
+appId: io.streamvault.desktop
+productName: StreamVault
+copyright: StreamVault
+
+directories:
+  buildResources: resources
+  output: dist
+
+files:
+  - out/**/*
+
+extraResources:
+  - from: resources/bin/
+    to: bin/
+    filter:
+      - "yt-dlp.exe"
+      - "ffmpeg.exe"
+      - "ffprobe.exe"
+publish:
+  provider: github
+  owner: your-github-username
+  repo: streamvault
+  private: false
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  icon: resources/icon.ico
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: StreamVault
+
+asarUnpack:
+  - node_modules/better-sqlite3/**/*
+
+npmRebuild: false
