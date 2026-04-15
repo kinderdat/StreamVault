@@ -26,7 +26,7 @@ Record, archive, and clip live streams — all from one place.
 
 ## Overview
 
-StreamVault is a desktop application for automatically archiving live streams from Twitch, YouTube, Kick, and more soon. Built on Electron and powered by yt-lp + FFmpeg, it records raw `.ts` HLS segments with quality option — and soon lets you trim clips instantly without re-encoding.
+StreamVault is a desktop application for automatically archiving live streams from Twitch, YouTube, Kick, and more. Built on Electron and powered by `yt-dlp` + FFmpeg, it records raw `.ts` HLS segments — and includes a lightweight clip workflow (no full editor).
 
 No subscriptions. No cloud. No data sent anywhere. Everything stays on your machine.
 
@@ -36,11 +36,12 @@ No subscriptions. No cloud. No data sent anywhere. Everything stays on your mach
 
 | Feature | Description |
 |---|---|
-| 🎥 **Raw Stream Recording** | Capture `.ts` HLS/m3u8 |
-| 🔗 **Drag & Drop URLs** | Paste any supported stream link and hit record |
-| 💾 **Local SQLite Storage** | All Recordings, metadata, and projects stored locally |
-| 🎨 **Modern UI** | React 19 + Tailwind CSS v4  |
-| 🖥️ **Cross-Platform** | Runs on Windows, macOS, and Linux |
+| 🎥 **Auto Recording** | Monitor streamers and automatically record when they go live |
+| ⚡ **Manual Checks** | One-click “Check” per streamer or “Check All” from the page header |
+| ✂️ **Clipping (Lightweight)** | Create/manage clips without a full timeline editor |
+| 💾 **Local SQLite Storage** | Recordings + metadata stored locally (videos remain as files on disk) |
+| 🧊 **Glass UI** | Modern dark UI with consistent “glass” card styling |
+| 🖥️ **System Tray** | Runs in the background; closing hides to tray (recordings continue) |
 
 ---
 
@@ -49,7 +50,7 @@ No subscriptions. No cloud. No data sent anywhere. Everything stays on your mach
 ```
 Frontend   →  React 19 · Tailwind CSS v4 · Vite 8 · Zustand · Radix UI
 Backend    →  Electron 41 · Node.js · better-sqlite3
-Video      →  FFmpeg · Streamlink · yt-dlp
+Video      →  FFmpeg · ffprobe · yt-dlp
 Build      →  vite-plugin-electron · electron-builder
 ```
 
@@ -64,7 +65,11 @@ npm install
 npm run dev
 ```
 
-> **Windows Users:** Download [`yt-dlp`](https://github.com/yt-dlp/yt-dlp/releases), [`ffmpeg gpl-X.X.zip `](https://github.com/btbn/ffmpeg-builds/releases), and `ffprobe.exe` and place them in `resources/bin/`.
+> **Windows Users:** Download [`yt-dlp.exe`](https://github.com/yt-dlp/yt-dlp/releases), [`ffmpeg.exe`](https://ffmpeg.org/download.html), and `ffprobe.exe` and place them in `resources/bin/`.
+
+### Updates
+
+Auto-updating is intentionally **disabled/removed** right now. To update, download a newer release/build and replace the app manually.
 
 ---
 
@@ -87,8 +92,10 @@ streamvault/
 
 - [x] Twitch · YouTube · Kick recording
 - [x] Local SQLite storage
-- [ ] NLE Editor + Clip Creation
+- [x] Lightweight clipping workflow
+- [ ] Lossless clip trimming improvements
 - [ ] Additional platform support
+- [ ] Optional “Crisp Text” / clarity mode toggle
 
 ---
 
