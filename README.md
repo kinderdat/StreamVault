@@ -93,9 +93,7 @@ streamvault/
 - [x] Twitch · YouTube · Kick recording
 - [x] Local SQLite storage
 - [x] Lightweight clipping workflow
-- [ ] Lossless clip trimming improvements
 - [ ] Additional platform support
-- [ ] Optional “Crisp Text” / clarity mode toggle
 
 ---
 
