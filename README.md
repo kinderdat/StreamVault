@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="https://raw.githubusercontent.com/kinderdat/streamvault/main/resources/icon.png" width="96" height="96" alt="StreamVault Logo" />
+<img src="https://raw.githubusercontent.com/kinderdat/streamvault/main/resources/icon.ico" width="96" height="96" alt="StreamVault Logo" />
 
 # StreamVault
 
