@@ -2,87 +2,36 @@ import { useState, useEffect, useRef } from 'react'
 import { Outlet } from 'react-router'
 import { TitleBar } from './TitleBar'
 import { Sidebar } from './Sidebar'
-import { Download } from 'lucide-react'
-import { animate } from 'animejs'
-import { slideDown } from '../../utils/anime'
+import { animate, createScope } from 'animejs'
 import { useRecordingsStore } from '../../stores/recordingsStore'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { formatBytes } from '../../utils/format'
-
-function UpdateBanner() {
-  const [state, setState] = useState<'idle' | 'available' | 'downloaded'>('idle')
-  const bannerRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    const off1 = window.electronAPI.onUpdaterAvailable?.(() => setState('available'))
-    const off2 = window.electronAPI.onUpdaterDownloaded?.(() => setState('downloaded'))
-    return () => { off1?.(); off2?.() }
-  }, [])
-
-  useEffect(() => {
-    if (state !== 'idle' && bannerRef.current) {
-      slideDown(bannerRef.current)
-    }
-  }, [state])
-
-  if (state === 'idle') return null
-
-  return (
-    <div ref={bannerRef} style={{
-      display: 'flex', alignItems: 'center', gap: 12,
-      padding: '8px 20px',
-      background: state === 'downloaded' ? 'var(--accent)' : 'var(--surface-raised)',
-      borderBottom: '1px solid var(--border)',
-      fontFamily: 'var(--font-ui)', fontSize: 13,
-      color: state === 'downloaded' ? '#fff' : 'var(--text-primary)',
-      zIndex: 100,
-    }}>
-      <Download size={14} />
-      {state === 'available'
-        ? 'A new update is downloading in the background...'
-        : 'Update ready — restart to apply'}
-      {state === 'downloaded' && (
-        <button
-          onClick={() => window.electronAPI.updaterInstallAndRestart()}
-          style={{
-            marginLeft: 'auto', padding: '4px 14px',
-            background: '#fff', color: 'var(--accent)',
-            border: 'none', borderRadius: 6,
-            fontFamily: 'var(--font-ui)', fontSize: 12, fontWeight: 700,
-            cursor: 'pointer',
-          }}
-        >
-          Restart now
-        </button>
-      )}
-    </div>
-  )
-}
+import { useDiskSpace } from '../../hooks/useDiskSpace'
+import { PersistentVideoMount } from '../player/PersistentVideoMount'
+import { usePlayerPipGuard } from '../../hooks/usePlayerPipGuard'
 
 function TelemetryBar() {
   const activeIds   = useRecordingsStore(s => s.activeIds)
   const recordings  = useRecordingsStore(s => s.recordings)
   const storagePath = useSettingsStore(s => s.settings.storagePath as string | undefined)
 
-  const [disk, setDisk] = useState<{ free: number; total: number } | null>(null)
+  const { data: disk } = useDiskSpace(storagePath)
   // Track cumulative bytes for a rough bitrate estimate
   const [bitrate, setBitrate] = useState<number>(0)
-  const prevSizes  = useRef<Map<number, number>>(new Map())
-  const prevTick   = useRef<number>(Date.now())
-  const barRef     = useRef<HTMLDivElement>(null)
-
-  // Disk space — refresh every 30s
-  useEffect(() => {
-    if (!storagePath) return
-    const fetch = () => window.electronAPI.getDiskSpace(storagePath).then(setDisk).catch(() => {})
-    fetch()
-    const t = setInterval(fetch, 30_000)
-    return () => clearInterval(t)
-  }, [storagePath])
+  const prevSizes         = useRef<Map<number, number>>(new Map())
+  const prevTick          = useRef<number>(Date.now())
+  const smoothedBitrate   = useRef<number>(0)
+  const barRef            = useRef<HTMLDivElement>(null)
+  const barScopeRef       = useRef<ReturnType<typeof createScope> | null>(null)
 
   // Rough bitrate from file-size deltas (updated by recording:sizeUpdate events)
   useEffect(() => {
-    if (activeIds.size === 0) { setBitrate(0); prevSizes.current.clear(); return }
+    if (activeIds.size === 0) {
+      setBitrate(0)
+      smoothedBitrate.current = 0
+      prevSizes.current.clear()
+      return
+    }
     const activeRecs = recordings.filter(r => activeIds.has(r.id))
     const now = Date.now()
     const dt  = (now - prevTick.current) / 1000 // seconds
@@ -95,14 +44,21 @@ function TelemetryBar() {
       if (curr > prev) deltaBytes += curr - prev
       prevSizes.current.set(r.id, curr)
     }
-    if (deltaBytes > 0) setBitrate(Math.round((deltaBytes * 8) / dt / 1000)) // kbps
+    if (deltaBytes > 0) {
+      const raw = Math.round((deltaBytes * 8) / dt / 1000) // kbps
+      smoothedBitrate.current = smoothedBitrate.current * 0.7 + raw * 0.3
+      setBitrate(Math.round(smoothedBitrate.current))
+    }
   }, [recordings, activeIds])
 
   // Animate progress bar
   useEffect(() => {
     if (!barRef.current) return
+    barScopeRef.current?.revert()
     const pct = activeIds.size > 0 ? 100 : 0
-    animate(barRef.current, { width: `${pct}%`, duration: 500, ease: 'outExpo' })
+    barScopeRef.current = createScope({ root: barRef.current })
+    barScopeRef.current.add(() => animate(barRef.current!, { width: `${pct}%`, duration: 500, ease: 'outExpo' }))
+    return () => { barScopeRef.current?.revert() }
   }, [activeIds.size])
 
   const isActive = activeIds.size > 0
@@ -156,10 +112,11 @@ function TelemetryBar() {
 }
 
 export function AppShell() {
+  usePlayerPipGuard()
+
   return (
     <div className="app-shell">
       <TitleBar />
-      <UpdateBanner />
       <div className="app-body">
         <Sidebar />
         <main className="app-main">
@@ -167,6 +124,7 @@ export function AppShell() {
         </main>
       </div>
       <TelemetryBar />
+      <PersistentVideoMount />
     </div>
   )
 }

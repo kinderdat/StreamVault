@@ -9,10 +9,7 @@ interface Settings {
   notifications: boolean
   notifyOnComplete: boolean
   autoDeleteAfterDays: number // 0 = never
-  splitOnChapterMarkers: boolean
   startMinimized: boolean
-  twitchClientId: string
-  twitchClientSecret: string
   // New settings
   fileNamePattern: string     // e.g. '{streamer}_{date}_{time}'
   ytdlpPath: string           // override path to yt-dlp binary
@@ -35,10 +32,7 @@ const defaults: Settings = {
   notifications: true,
   notifyOnComplete: false,
   autoDeleteAfterDays: 0,
-  splitOnChapterMarkers: false,
   startMinimized: false,
-  twitchClientId: '',
-  twitchClientSecret: '',
   fileNamePattern: '{streamer}_{date}_{time}',
   ytdlpPath: '',
   ffmpegPath: '',
@@ -60,10 +54,7 @@ export const useSettingsStore = create<SettingsState>((setState, getState) => ({
       notifications:           (all.notifications as boolean)          ?? true,
       notifyOnComplete:        (all.notifyOnComplete as boolean)       ?? false,
       autoDeleteAfterDays:     (all.autoDeleteAfterDays as number)     ?? 0,
-      splitOnChapterMarkers:   (all.splitOnChapterMarkers as boolean)  ?? false,
       startMinimized:          (all.startMinimized as boolean)         ?? false,
-      twitchClientId:          (all.twitchClientId as string)          ?? '',
-      twitchClientSecret:      (all.twitchClientSecret as string)      ?? '',
       fileNamePattern:         (all.fileNamePattern as string)         ?? '{streamer}_{date}_{time}',
       ytdlpPath:               (all.ytdlpPath as string)               ?? '',
       ffmpegPath:              (all.ffmpegPath as string)              ?? '',

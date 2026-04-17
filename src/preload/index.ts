@@ -1,13 +1,37 @@
 import { contextBridge, ipcRenderer } from 'electron'
+import path from 'node:path'
+import { pathToFileURL } from 'node:url'
 
 type Unsubscribe = () => void
 
+function assertNumberId(id: number): number {
+  if (!Number.isInteger(id) || id <= 0) throw new Error('Invalid id')
+  return id
+}
+
+function assertFilePath(filePath: string): string {
+  if (typeof filePath !== 'string' || filePath.trim().length === 0) throw new Error('Invalid file path')
+  return filePath
+}
+
+function assertHttpUrl(url: string): string {
+  const parsed = new URL(url)
+  if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('Invalid URL protocol')
+  return parsed.toString()
+}
+
 const electronAPI = {
+  /** Sync file:// URL for thumbnails and static assets (no .ts remux). */
+  toFileUrl: (filePath: string): string => pathToFileURL(path.normalize(assertFilePath(filePath))).href,
+  /** Async: remux .ts → temp MP4 when needed, then return file:// href for <video>. */
+  preparePlayback: (filePath: string): Promise<string> => ipcRenderer.invoke('media:preparePlayback', assertFilePath(filePath)),
+
   // Window
   minimize: (): Promise<void> => ipcRenderer.invoke('window:minimize'),
   maximize: (): Promise<void> => ipcRenderer.invoke('window:maximize'),
   close: (): Promise<void> => ipcRenderer.invoke('window:close'),
   isMaximized: (): Promise<boolean> => ipcRenderer.invoke('window:isMaximized'),
+  getAppVersion: (): Promise<string> => ipcRenderer.invoke('app:getVersion'),
   onMaximizeChange: (cb: (maximized: boolean) => void): Unsubscribe => {
     const h = (_: Electron.IpcRendererEvent, v: boolean) => cb(v)
     ipcRenderer.on('window:maximized', h)
@@ -27,26 +51,26 @@ const electronAPI = {
   // Streamers
   streamersGetAll: (): Promise<unknown[]> => ipcRenderer.invoke('streamers:getAll'),
   streamersAdd: (channelUrl: string): Promise<unknown> => ipcRenderer.invoke('streamers:add', channelUrl),
-  streamersRemove: (id: number): Promise<void> => ipcRenderer.invoke('streamers:remove', id),
+  streamersRemove: (id: number): Promise<void> => ipcRenderer.invoke('streamers:remove', assertNumberId(id)),
   streamersSetActive: (id: number, active: boolean): Promise<void> =>
-    ipcRenderer.invoke('streamers:setActive', id, active),
-  streamersCheckNow: (id: number): Promise<void> => ipcRenderer.invoke('streamers:checkNow', id),
+    ipcRenderer.invoke('streamers:setActive', assertNumberId(id), active),
+  streamersCheckNow: (id: number): Promise<void> => ipcRenderer.invoke('streamers:checkNow', assertNumberId(id)),
   streamersRefreshAvatars: (): Promise<unknown[]> => ipcRenderer.invoke('streamers:refreshAvatars'),
 
   // Recordings
   recordingsGetAll: (): Promise<unknown[]> => ipcRenderer.invoke('recordings:getAll'),
   recordingsGetByStreamer: (streamerId: number): Promise<unknown[]> =>
-    ipcRenderer.invoke('recordings:getByStreamer', streamerId),
-  recordingsGetById: (id: number): Promise<unknown> => ipcRenderer.invoke('recordings:getById', id),
+    ipcRenderer.invoke('recordings:getByStreamer', assertNumberId(streamerId)),
+  recordingsGetById: (id: number): Promise<unknown> => ipcRenderer.invoke('recordings:getById', assertNumberId(id)),
   recordingsGetStats: (): Promise<{ total: number; active: number; failed: number; total_duration: number; last_24h: number }> =>
     ipcRenderer.invoke('recordings:getStats'),
   recordingsClearFailed: (): Promise<void> => ipcRenderer.invoke('recordings:clearFailed'),
-  recordingsStop: (id: number): Promise<void> => ipcRenderer.invoke('recordings:stop', id),
-  recordingsDelete: (id: number): Promise<void> => ipcRenderer.invoke('recordings:delete', id),
+  recordingsStop: (id: number): Promise<void> => ipcRenderer.invoke('recordings:stop', assertNumberId(id)),
+  recordingsDelete: (id: number): Promise<void> => ipcRenderer.invoke('recordings:delete', assertNumberId(id)),
   recordingsOpenFolder: (filePath: string): Promise<void> =>
-    ipcRenderer.invoke('recordings:openFolder', filePath),
+    ipcRenderer.invoke('recordings:openFolder', assertFilePath(filePath)),
   recordingsOpenFile: (filePath: string): Promise<void> =>
-    ipcRenderer.invoke('recordings:openFile', filePath),
+    ipcRenderer.invoke('recordings:openFile', assertFilePath(filePath)),
 
   // Monitor
   monitorGetStatus: (): Promise<{ running: boolean; nextTickIn: number; activeRecordingIds: number[] }> =>
@@ -56,21 +80,17 @@ const electronAPI = {
   monitorPause: (): Promise<void> => ipcRenderer.invoke('monitor:pause'),
   monitorResume: (): Promise<void> => ipcRenderer.invoke('monitor:resume'),
 
-  // Shell
-  openExternal: (url: string): Promise<void> => ipcRenderer.invoke('shell:openExternal', url),
+  // Clips (Phase 2 — main-side registered in Phase 2)
+  clipsGetAll: (): Promise<unknown[]> => ipcRenderer.invoke('clips:getAll'),
+  clipsGetByRecording: (id: number): Promise<unknown[]> => ipcRenderer.invoke('clips:getByRecording', assertNumberId(id)),
+  clipsGetById: (id: number): Promise<unknown> => ipcRenderer.invoke('clips:getById', assertNumberId(id)),
+  clipsCreate: (data: object): Promise<unknown> => ipcRenderer.invoke('clips:create', data),
+  clipsUpdate: (id: number, data: object): Promise<void> => ipcRenderer.invoke('clips:update', assertNumberId(id), data),
+  clipsDelete: (id: number): Promise<void> => ipcRenderer.invoke('clips:delete', assertNumberId(id)),
+  clipsOpenFolder: (filePath: string): Promise<void> => ipcRenderer.invoke('clips:openFolder', assertFilePath(filePath)),
 
-  // Updater
-  updaterInstallAndRestart: (): Promise<void> => ipcRenderer.invoke('updater:installAndRestart'),
-  onUpdaterAvailable: (cb: () => void): (() => void) => {
-    const h = () => cb()
-    ipcRenderer.on('updater:available', h)
-    return () => ipcRenderer.off('updater:available', h)
-  },
-  onUpdaterDownloaded: (cb: () => void): (() => void) => {
-    const h = () => cb()
-    ipcRenderer.on('updater:downloaded', h)
-    return () => ipcRenderer.off('updater:downloaded', h)
-  },
+  // Shell
+  openExternal: (url: string): Promise<void> => ipcRenderer.invoke('shell:openExternal', assertHttpUrl(url)),
 
   // Push events from main process
   onRecordingProgress: (cb: (data: { recordingId: number; percent?: number; fragments?: number }) => void): Unsubscribe => {

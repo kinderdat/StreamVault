@@ -6,7 +6,7 @@ export interface Streamer {
   display_name: string
   avatar_url: string | null
   added_at: number
-  is_active: number // 0 or 1
+  is_active: boolean
   last_checked: number | null
   last_live_at: number | null
   recording_count: number
@@ -35,4 +35,34 @@ export interface Recording {
   status: 'recording' | 'processing' | 'completed' | 'failed'
   started_at: number
   completed_at: number | null
+}
+
+// ─── Player ──────────────────────────────────────────────────────────
+
+export interface PlayerSource {
+  id: number
+  kind: 'recording' | 'clip'
+  filePath: string
+  title: string
+  durationSecs: number | null
+  platform?: string
+}
+
+// ─── Clips ───────────────────────────────────────────────────────────
+
+export interface Clip {
+  id: number
+  recording_id: number
+  title: string | null
+  start_secs: number
+  end_secs: number
+  file_path: string | null
+  thumbnail_path: string | null
+  duration_secs: number | null
+  created_at: number
+  // JOIN fields from recordings + streamers
+  recording_title: string | null
+  recording_file_path: string | null
+  streamer_name: string
+  platform: string
 }

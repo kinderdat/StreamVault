@@ -1,7 +1,6 @@
 import { net } from 'electron'
 import { spawn } from 'child_process'
 import { getBinPath } from './ffmpeg'
-import { store } from './ipc/settings'
 
 export interface LiveInfo {
   isLive: boolean
@@ -70,62 +69,6 @@ export function extractUsername(url: string, platform: string): string {
   } catch {
     return url
   }
-}
-
-// ── Twitch Helix batch live check ────────────────────────────────
-let twitchToken: string | null = null
-let twitchTokenExpiry = 0
-
-async function getTwitchToken(clientId: string, clientSecret: string): Promise<string | null> {
-  if (twitchToken && Date.now() < twitchTokenExpiry) return twitchToken
-  try {
-    const body = await fetchJson(
-      `https://id.twitch.tv/oauth2/token?client_id=${clientId}&client_secret=${clientSecret}&grant_type=client_credentials`,
-      { method: 'POST' }
-    )
-    twitchToken = body.access_token ?? null
-    twitchTokenExpiry = Date.now() + (body.expires_in ?? 3600) * 1000 - 60000
-    return twitchToken
-  } catch {
-    return null
-  }
-}
-
-export async function checkTwitchBatch(usernames: string[]): Promise<Map<string, LiveInfo>> {
-  const result = new Map<string, LiveInfo>()
-  const clientId = store.get('twitchClientId') as string | undefined
-  const clientSecret = store.get('twitchClientSecret') as string | undefined
-  if (!clientId || !clientSecret) {
-    for (const u of usernames) result.set(u, { isLive: false })
-    return result
-  }
-
-  const token = await getTwitchToken(clientId, clientSecret)
-  if (!token) {
-    for (const u of usernames) result.set(u, { isLive: false })
-    return result
-  }
-
-  try {
-    const query = usernames.map(u => `user_login=${encodeURIComponent(u)}`).join('&')
-    const data = await fetchJson(`https://api.twitch.tv/helix/streams?${query}&first=100`, {
-      headers: { 'Client-ID': clientId, 'Authorization': `Bearer ${token}` }
-    })
-    for (const u of usernames) result.set(u, { isLive: false })
-    for (const stream of (data.data ?? [])) {
-      result.set(stream.user_login.toLowerCase(), {
-        isLive: true,
-        title: stream.title,
-        viewerCount: stream.viewer_count,
-        thumbnailUrl: stream.thumbnail_url?.replace('{width}', '320').replace('{height}', '180'),
-        streamId: stream.id,
-        category: stream.game_name || undefined,
-      })
-    }
-  } catch {
-    for (const u of usernames) result.set(u, { isLive: false })
-  }
-  return result
 }
 
 // ── Kick live check ──────────────────────────────────────────────
@@ -204,12 +147,13 @@ export async function findKickVodM3u8(channelUrl: string): Promise<string | null
     const data = await fetchJson(`https://kick.com/api/v1/channels/${username}/videos?sort=desc`, {
       headers: { 'User-Agent': UA, 'Accept': 'application/json' }
     })
-    const videos = data?.data ?? []
+    const videos = (data?.data as Array<Record<string, unknown>> | undefined) ?? []
     if (!videos.length) return null
 
-    const video = videos[0]
-    const thumbUrl: string = video?.thumbnail?.src ?? ''
-    const startTime: string = video?.start_time ?? ''
+    const video = videos[0] as Record<string, unknown> | undefined
+    const thumbnail = (video?.thumbnail as Record<string, unknown> | undefined)
+    const thumbUrl = typeof thumbnail?.src === 'string' ? thumbnail.src : ''
+    const startTime = typeof video?.start_time === 'string' ? video.start_time : ''
 
     const thumbParts = thumbUrl.split('/')
     if (thumbParts.length < 6) return null

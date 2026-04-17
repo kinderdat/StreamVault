@@ -5,7 +5,7 @@
 # StreamVault
 
 **Automatic stream archiver for Twitch, YouTube, Kick and more.**  
-Record, archive, and clip live streams — all from one place.
+Record, archive, and clip live streams from one desktop app.
 
 <br/>
 
@@ -16,9 +16,9 @@ Record, archive, and clip live streams — all from one place.
 [![SQLite](https://img.shields.io/badge/SQLite-Local_DB-003B57?style=for-the-badge&logo=sqlite&logoColor=white)](https://www.sqlite.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-22C55E?style=for-the-badge)](LICENSE)
 
-[![Platform](https://img.shields.io/badge/Platform-Windows_%7C_macOS_%7C_Linux-6B7280?style=flat-square&logo=github)](https://github.com/kinderdat/streamvault/releases)
-[![Stars](https://img.shields.io/github/stars/kinderdat/streamvault?style=flat-square&color=FBBF24)](https://github.com/kinderdat/streamvault/stargazers)
-[![Issues](https://img.shields.io/github/issues/kinderdat/streamvault?style=flat-square&color=F87171)](https://github.com/kinderdat/streamvault/issues)
+[![Platform](https://img.shields.io/badge/Platform-Windows_%7C_macOS_%7C_Linux-6B7280?style=flat-square&logo=github)](https://github.com/kinderdat/StreamVault/releases)
+[![Stars](https://img.shields.io/github/stars/kinderdat/StreamVault?style=flat-square&color=FBBF24)](https://github.com/kinderdat/StreamVault/stargazers)
+[![Issues](https://img.shields.io/github/issues/kinderdat/StreamVault?style=flat-square&color=F87171)](https://github.com/kinderdat/StreamVault/issues)
 
 </div>
 
@@ -26,7 +26,7 @@ Record, archive, and clip live streams — all from one place.
 
 ## Overview
 
-StreamVault is a desktop application for automatically archiving live streams from Twitch, YouTube, Kick, and more. Built on Electron and powered by `yt-dlp` + FFmpeg, it records raw `.ts` HLS segments — and includes a lightweight clip workflow (no full editor).
+StreamVault is a desktop app for automatically archiving live streams from Twitch, YouTube, Kick, and more. Built on Electron and powered by `yt-dlp` + FFmpeg, it records raw `.ts` HLS segments and includes a lightweight clip workflow.
 
 No subscriptions. No cloud. No data sent anywhere. Everything stays on your machine.
 
@@ -38,55 +38,37 @@ No subscriptions. No cloud. No data sent anywhere. Everything stays on your mach
 |---|---|
 | 🎥 **Auto Recording** | Monitor streamers and automatically record when they go live |
 | ⚡ **Manual Checks** | One-click “Check” per streamer or “Check All” from the page header |
-| ✂️ **Clipping (Lightweight)** | Create/manage clips without a full timeline editor |
-| 💾 **Local SQLite Storage** | Recordings + metadata stored locally (videos remain as files on disk) |
+| ✂️ **Clipping (Lightweight)** | Create/manage clips |
+| 💾 **Local SQLite Storage** | Recordings + metadata stored locally |
 | 🧊 **Glass UI** | Modern dark UI with consistent “glass” card styling |
-| 🖥️ **System Tray** | Runs in the background; closing hides to tray (recordings continue) |
+| 🖥️ **System Tray** | Runs in the background; closing hides to tray |
 
 ---
 
 ## Tech Stack
 
-```
-Frontend   →  React 19 · Tailwind CSS v4 · Vite 8 · Zustand · Radix UI
-Backend    →  Electron 41 · Node.js · better-sqlite3
-Video      →  FFmpeg · ffprobe · yt-dlp
-Build      →  vite-plugin-electron · electron-builder
-```
+`React 19 · Tailwind CSS v4 · Vite 8 · Zustand · Radix UI primitives · Electron 41 · better-sqlite3 · yt-dlp · FFmpeg`
 
 ---
 
 ## Quick Start
 
 ```bash
-git clone https://github.com/kinderdat/streamvault.git
+git clone https://github.com/kinderdat/StreamVault.git
 cd streamvault
 npm install
-npm run dev
+npm run dist:win
 ```
 
 > **Windows Users:** Download [`yt-dlp.exe`](https://github.com/yt-dlp/yt-dlp/releases), [`ffmpeg.exe`](https://ffmpeg.org/download.html), and `ffprobe.exe` and place them in `resources/bin/`.
 
 ### Updates
 
-Auto-updating is intentionally **disabled/removed** right now. To update, download a newer release/build and replace the app manually.
+Auto-updating is **disabled/removed** right now. To update, download a newer release/build and replace the app manually.
+
 
 ---
 
-## Project Structure
-
-```
-streamvault/
-├── src/
-│   ├── main/          # Electron main process
-│   ├── preload/       # IPC bridge (context bridge)
-│   └── renderer/      # React application
-├── resources/
-│   └── bin/           # FFmpeg · yt-dlp binaries
-└── out/               # Build output
-```
-
----
 
 ## Roadmap
 
@@ -97,8 +79,8 @@ streamvault/
 
 ---
 
-- [**yt-dlp**](https://github.com/yt-dlp/yt-dlp) — Feature-rich stream/video downloader
-- [**FFmpeg**](https://ffmpeg.org) — Multimedia processing framework
+- [**yt-dlp**](https://github.com/yt-dlp/yt-dlp) 
+- [**FFmpeg**](https://ffmpeg.org) 
 
 ---
 
@@ -111,6 +93,6 @@ See [`LICENSE`](LICENSE) for full terms.
 
 <div align="center">
 
-Made by [kinder](https://github.com/kinderdat) · ⭐ Star if you find it useful
+Author: [kinderdat](https://github.com/kinderdat) (kinder) · ⭐ Star if you find it useful
 
 </div>

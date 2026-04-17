@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Minus, Square, X, Maximize2 } from 'lucide-react'
+import { Icon } from '../Icon'
 
 export function TitleBar() {
   const [isMaximized, setIsMaximized] = useState(false)
@@ -29,13 +29,13 @@ export function TitleBar() {
 
       <div className="titlebar-controls" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
         <button className="win-btn win-btn-min" onClick={() => window.electronAPI.minimize()} aria-label="Minimize">
-          <Minus size={12} />
+          <Icon name="subtract-line" size={16} />
         </button>
         <button className="win-btn win-btn-max" onClick={() => window.electronAPI.maximize()} aria-label={isMaximized ? 'Restore' : 'Maximize'}>
-          {isMaximized ? <Square size={11} /> : <Maximize2 size={11} />}
+          {isMaximized ? <Icon name="checkbox-blank-line" size={16} /> : <Icon name="window-line" size={16} />}
         </button>
         <button className="win-btn win-btn-close" onClick={() => window.electronAPI.close()} aria-label="Close">
-          <X size={12} />
+          <Icon name="close-line" size={16} />
         </button>
       </div>
     </div>

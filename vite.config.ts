@@ -13,7 +13,11 @@ export default defineConfig({
         entry: resolve(__dirname, 'src/main/index.ts'),
         vite: {
           build: {
-            outDir: 'out/main',
+            outDir: resolve(__dirname, 'out/main'),
+            rollupOptions: {
+              // Native modules must stay external so Electron can load binaries at runtime.
+              external: ['better-sqlite3'],
+            },
           },
         },
       },
@@ -21,7 +25,7 @@ export default defineConfig({
         input: resolve(__dirname, 'src/preload/index.ts'),
         vite: {
           build: {
-            outDir: 'out/preload',
+            outDir: resolve(__dirname, 'out/preload'),
           },
         },
       },
@@ -30,6 +34,7 @@ export default defineConfig({
   root: resolve(__dirname, 'src/renderer'),
   build: {
     outDir: resolve(__dirname, 'out/renderer'),
+    emptyOutDir: true,
     rollupOptions: {
       input: resolve(__dirname, 'src/renderer/index.html'),
     },

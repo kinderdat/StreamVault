@@ -35,10 +35,12 @@ export function countUp(el: Element, to: number, duration = 850) {
 
 /**
  * Slide open an accordion panel (height 0 → scrollHeight, opacity 0 → 1).
- * Caller must set overflow:hidden on the element via CSS.
+ * The element's CSS class controls the correct display value (e.g. grid).
+ * We clear the inline display override so the class takes effect.
  */
 export function accordionOpen(el: HTMLElement) {
-  el.style.display = 'block'
+  // Clear any inline display:none so the CSS-defined display value (e.g. grid) is used
+  el.style.display = ''
   const height = el.scrollHeight
   return animate(el, {
     height: [0, height],

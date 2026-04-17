@@ -1,7 +1,8 @@
 import { app, BrowserWindow, shell, ipcMain, protocol, Tray, Menu, nativeImage } from 'electron'
-import { autoUpdater } from 'electron-updater'
-import { join, normalize, extname } from 'path'
-import { existsSync, readFileSync } from 'fs'
+import { join, extname } from 'path'
+import { existsSync, statSync, createReadStream } from 'fs'
+import { Readable } from 'stream'
+import { cleanupPlaybackCache, ensurePlayableMp4, mediaRequestToFilePath, prepareLocalPlaybackHref } from './mediaPrepare'
 
 let isQuitting = false
 
@@ -11,12 +12,15 @@ app.commandLine.appendSwitch('enable-features',
 )
 app.commandLine.appendSwitch('enable-accelerated-video-decode')
 app.commandLine.appendSwitch('enable-gpu-rasterization')
+// Keep Chromium in full-resolution rendering mode on Windows displays
+app.commandLine.appendSwitch('high-dpi-support', '1')
+app.commandLine.appendSwitch('force-device-scale-factor', '1')
 
-// ── media:// protocol — serves local images (thumbnails/snapshots) ──
+// ── media:// protocol — serves local files (images + video with range support) ──
 // Must register scheme before app is ready
 protocol.registerSchemesAsPrivileged([{
   scheme: 'media',
-  privileges: { secure: true, supportFetchAPI: true, bypassCSP: true, corsEnabled: true },
+  privileges: { secure: true, supportFetchAPI: true, bypassCSP: true, corsEnabled: true, stream: true },
 }])
 
 import { registerWindowIpc } from './ipc/window'
@@ -24,28 +28,123 @@ import { registerSettingsIpc } from './ipc/settings'
 import { registerStreamersIpc, setStreamersWindow } from './ipc/streamers'
 import { registerRecordingsIpc } from './ipc/recordings'
 import { registerMonitorIpc } from './ipc/monitor'
+import { registerClipsIpc } from './ipc/clips'
 import { setMainWindow, stopAll, killAllProcesses } from './recorder'
 import { startMonitor, stopMonitor } from './monitor'
 import { store } from './ipc/settings'
 
+ipcMain.handle('media:preparePlayback', async (_e, rawPath: unknown) => {
+  if (typeof rawPath !== 'string' || !rawPath.trim()) {
+    throw new Error('Invalid path')
+  }
+  return prepareLocalPlaybackHref(rawPath)
+})
+
 let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
 
+function isSafeExternalUrl(rawUrl: string): boolean {
+  try {
+    const parsed = new URL(rawUrl)
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
+function resolveTrayIcon(): Electron.NativeImage {
+  const candidates = [
+    join(process.resourcesPath, 'icon.ico'),
+    join(process.resourcesPath, 'icon.png'),
+    join(app.getAppPath(), 'resources', 'icon.ico'),
+    join(app.getAppPath(), 'resources', 'icon.png'),
+    join(__dirname, '../../resources/icon.ico'),
+    join(__dirname, '../../resources/icon.png'),
+    process.execPath,
+  ]
+
+  for (const iconPath of candidates) {
+    if (!existsSync(iconPath)) continue
+    const image = nativeImage.createFromPath(iconPath)
+    if (!image.isEmpty()) {
+      return image.resize({ width: 16, height: 16 })
+    }
+  }
+
+  // High-contrast fallback so tray icon is always visible.
+  return nativeImage.createFromDataURL(
+    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAQAAAC1+jfqAAAAv0lEQVQoz53SMUoDQRAG4E8R0QhW8Qm2lnY2Vha2Ns7A0sJCSy0tLMTCQhI8g2i0EbxAJWJrY2FhWJj8k8n6DIf5mR3+79j5mQEeQWz6b4A2q6B8j4QkJwR2r9mJ+E2K6m8xJfQ6JkqfQx0p6Q3Qy5G8mQ7wqQ6h6tG0k8z5rQf4k1Vj2jvN0mJfR7rN9wH3y4wC4yqHq0QxkN9hM1b6f2u8Lz+q0G3i9j2r8s2v8zvYHn0YQw3Y1v0x8Q0y9vF7N4y5F1n0m5Vn0o8o2j9g8f5nQfQf3N5xk2W0tJd1gAAAABJRU5ErkJggg=='
+  )
+}
+
 function createWindow(): void {
-  protocol.handle('media', (request) => {
+  protocol.handle('media', async (request) => {
     try {
-      const url = new URL(request.url)
-      const rawPath = decodeURIComponent(url.pathname)
-      const filePath = normalize(process.platform === 'win32' ? rawPath.replace(/^\//, '') : rawPath)
-      if (!existsSync(filePath)) return new Response('Not found', { status: 404 })
-      const ext = extname(filePath).toLowerCase()
+      let filePath = mediaRequestToFilePath(request.url)
+      if (!filePath || !existsSync(filePath)) {
+        console.warn('[media] not found or bad URL', request.url, '→', filePath)
+        return new Response('Not found', { status: 404 })
+      }
+
+      let ext = extname(filePath).toLowerCase()
+
+      // Chromium cannot decode video/mp2t on Windows — transparently remux .ts → MP4
+      if (ext === '.ts') {
+        const playable = await ensurePlayableMp4(filePath)
+        if (playable) {
+          filePath = playable
+          ext = '.mp4'
+        }
+      }
+
       const mime =
+        ext === '.mp4'  ? 'video/mp4' :
+        ext === '.ts'   ? 'video/mp2t' :
+        ext === '.mkv'  ? 'video/x-matroska' :
+        ext === '.webm' ? 'video/webm' :
+        ext === '.mov'  ? 'video/quicktime' :
         ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' :
         ext === '.png'  ? 'image/png'  :
         ext === '.webp' ? 'image/webp' : 'application/octet-stream'
-      const data = readFileSync(filePath)
-      return new Response(data, { status: 200, headers: { 'Content-Type': mime } })
-    } catch {
+
+      const stat = statSync(filePath)
+      const fileSize = stat.size
+      const rangeHeader = request.headers.get('range')
+
+      if (rangeHeader) {
+        const [, rangeStr] = rangeHeader.split('=')
+        const [startStr, endStr] = (rangeStr ?? '').split('-')
+        const start = parseInt(startStr, 10)
+        const end = endStr ? parseInt(endStr, 10) : fileSize - 1
+        if (!Number.isFinite(start) || start < 0 || end < start || start >= fileSize) {
+          return new Response('Invalid range', { status: 416 })
+        }
+        const chunkSize = end - start + 1
+        const stream = createReadStream(filePath, { start, end })
+        const body = Readable.toWeb(stream) as ReadableStream
+        return new Response(body, {
+          status: 206,
+          headers: {
+            'Content-Type': mime,
+            'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+            'Accept-Ranges': 'bytes',
+            'Content-Length': String(chunkSize),
+          },
+        })
+      }
+
+      const stream = createReadStream(filePath)
+      const body = Readable.toWeb(stream) as ReadableStream
+      return new Response(body, {
+        status: 200,
+        headers: {
+          'Content-Type': mime,
+          'Accept-Ranges': 'bytes',
+          'Content-Length': String(fileSize),
+        },
+      })
+    } catch (e) {
+      console.error('[media] handler error', request.url, e)
       return new Response('Error', { status: 500 })
     }
   })
@@ -65,7 +164,8 @@ function createWindow(): void {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
-      // webSecurity enabled (default true) — media:// protocol has its own CORS config
+      // Local <video> + Vite dev (http://): allow loading media:// / file resources reliably.
+      webSecurity: false,
     },
   })
 
@@ -83,13 +183,7 @@ function createWindow(): void {
   })
 
   // ── System tray ─────────────────────────────────────────────────
-  const iconPath = join(__dirname, '../../resources/icon.ico')
-  const trayIcon = existsSync(iconPath)
-    ? nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 })
-    : nativeImage.createFromDataURL(
-        // minimal 16x16 red square as fallback
-        'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAH0lEQVQ4T2P8z8BQDwAEgAF/QualIQAAAABJRU5ErkJggg=='
-      )
+  const trayIcon = resolveTrayIcon()
   tray = new Tray(trayIcon)
   tray.setToolTip('StreamVault')
   tray.setContextMenu(Menu.buildFromTemplate([
@@ -115,7 +209,7 @@ function createWindow(): void {
     }
   })
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (/^https?:\/\//i.test(url)) shell.openExternal(url)
+    if (isSafeExternalUrl(url)) shell.openExternal(url)
     return { action: 'deny' }
   })
 
@@ -124,14 +218,10 @@ function createWindow(): void {
   registerStreamersIpc()
   registerRecordingsIpc()
   registerMonitorIpc()
+  registerClipsIpc()
 
   ipcMain.handle('shell:openExternal', async (_event, url: string) => {
-    if (/^https?:\/\//i.test(url)) await shell.openExternal(url)
-  })
-
-  ipcMain.handle('updater:installAndRestart', () => {
-    isQuitting = true
-    autoUpdater.quitAndInstall()
+    if (isSafeExternalUrl(url)) await shell.openExternal(url)
   })
 
   setMainWindow(mainWindow)
@@ -148,17 +238,6 @@ function createWindow(): void {
     ).run(Date.now())
   } catch { /* ignore */ }
 
-  // ── Auto-updater ─────────────────────────────────────────────────
-  if (app.isPackaged) {
-    autoUpdater.checkForUpdatesAndNotify()
-    autoUpdater.on('update-available', () => {
-      mainWindow?.webContents.send('updater:available')
-    })
-    autoUpdater.on('update-downloaded', () => {
-      mainWindow?.webContents.send('updater:downloaded')
-    })
-  }
-
   if (process.env.ELECTRON_RENDERER_URL) {
     mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL)
   } else {
@@ -167,6 +246,7 @@ function createWindow(): void {
 }
 
 app.whenReady().then(createWindow)
+app.whenReady().then(() => cleanupPlaybackCache())
 
 app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) createWindow()
@@ -189,6 +269,10 @@ process.on('uncaughtException', async (err) => {
   stopMonitor()
   killAllProcesses()
   await stopAll()
+})
+
+process.on('unhandledRejection', (reason) => {
+  console.error('[unhandledRejection]', reason)
 })
 
 // Also catch SIGTERM / SIGINT (Task Manager, Ctrl+C in terminal)

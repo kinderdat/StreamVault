@@ -4,6 +4,7 @@ import type { Recording } from '../types/domain'
 interface RecordingsState {
   recordings: Recording[]
   activeIds: Set<number>
+  loading: boolean
   load: () => Promise<void>
   delete: (id: number) => Promise<void>
   stop: (id: number) => Promise<void>
@@ -18,12 +19,14 @@ interface RecordingsState {
 export const useRecordingsStore = create<RecordingsState>((set, get) => ({
   recordings: [],
   activeIds: new Set(),
+  loading: false,
 
   async load() {
+    set({ loading: true })
     const data = await window.electronAPI.recordingsGetAll()
     const recs = data as Recording[]
     const activeIds = new Set<number>(recs.filter(r => r.status === 'recording').map(r => r.id))
-    set({ recordings: recs, activeIds })
+    set({ recordings: recs, activeIds, loading: false })
   },
 
   async delete(id: number) {

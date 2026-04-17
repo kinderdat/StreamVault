@@ -8,6 +8,7 @@
   "compilerOptions": {
     "composite": true,
     "types": ["node"],
-    "ignoreDeprecations": "6.0"
+    "noEmit": true,
+    "tsBuildInfoFile": "./node_modules/.cache/tsconfig.node.tsbuildinfo"
   }
 }

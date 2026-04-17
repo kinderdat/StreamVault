@@ -1,17 +1,17 @@
 import { useEffect, useRef } from 'react'
-import type { LucideIcon } from 'lucide-react'
 import { NavLink } from 'react-router'
 import { badgePulse } from '../../utils/anime'
+import { Icon } from '../Icon'
 
 interface SidebarItemProps {
   to: string
-  icon: LucideIcon
+  icon: string
   label: string
   collapsed: boolean
   badge?: number
 }
 
-export function SidebarItem({ to, icon: Icon, label, collapsed, badge }: SidebarItemProps) {
+export function SidebarItem({ to, icon: iconName, label, collapsed, badge }: SidebarItemProps) {
   const badgeRef = useRef<HTMLSpanElement>(null)
   const prevBadge = useRef<number | undefined>(undefined)
 
@@ -38,7 +38,7 @@ export function SidebarItem({ to, icon: Icon, label, collapsed, badge }: Sidebar
       title={collapsed ? label : undefined}
     >
       <span className="sidebar-item-icon">
-        <Icon size={20} strokeWidth={1.75} />
+        <Icon name={iconName} size={20} />
         {badge != null && badge > 0 && (
           <span ref={badgeRef} className="sidebar-badge">{badge > 99 ? '99+' : badge}</span>
         )}

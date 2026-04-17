@@ -2,25 +2,28 @@ import { useRef, useState, useEffect } from 'react'
 import { createScope } from 'animejs'
 import { staggerIn } from '../utils/anime'
 import { useParams, useNavigate } from 'react-router'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, FolderOpen, Trash2, StopCircle } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
 import { PlatformBadge } from '../components/PlatformBadge'
 import { ProcessingBars } from '../components/ProcessingBars'
-import { formatDuration, formatBytes, formatDateTime, fileUrl } from '../utils/format'
+import { formatDuration, formatBytes, formatDateTime, formatDate, fileUrl } from '../utils/format'
 import { useRecordingsStore } from '../stores/recordingsStore'
-import type { Recording } from '../types/domain'
+import { usePlayerStore } from '../stores/playerStore'
+import type { Recording, Clip } from '../types/domain'
+import { Icon } from '../components/Icon'
+
+export const recordingQueryKey = (id: number | string) => ['recording', String(id)] as const
 
 export function RecordingDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const queryClient = useQueryClient()
   const metaGridRef = useRef<HTMLDivElement>(null)
 
   const stopRecording = useRecordingsStore(s => s.stop)
+  const loadPlayer    = usePlayerStore(s => s.load)
   const [stopping, setStopping] = useState(false)
 
   const { data: recording, isLoading: loadingRec } = useQuery<Recording>({
-    queryKey: ['recording', id],
+    queryKey: recordingQueryKey(id ?? ''),
     queryFn: () => window.electronAPI.recordingsGetById(Number(id)) as Promise<Recording>,
     enabled: !!id,
     staleTime: 0,
@@ -34,11 +37,7 @@ export function RecordingDetail() {
     if (!recording || stopping) return
     setStopping(true)
     await stopRecording(recording.id)
-    let tries = 0
-    const poll = setInterval(() => {
-      queryClient.invalidateQueries({ queryKey: ['recording', String(id)] })
-      if (++tries >= 10) clearInterval(poll)
-    }, 1000)
+    // useQuery's refetchInterval handles polling while status is 'recording'/'processing'
   }
 
   // ── Stagger metadata grid on mount ──
@@ -84,12 +83,15 @@ export function RecordingDetail() {
     <div className="page"><div className="empty-state"><h3>Recording not found</h3></div></div>
   )
 
+  const normalizedCategory = recording.category?.trim() || 'Uncategorized'
+  const normalizedViewers = recording.viewer_count != null ? recording.viewer_count.toLocaleString() : 'Not captured'
+
   return (
     <div className="page">
       {/* ── Header ── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
         <button className="btn btn-ghost" style={{ padding: '6px 10px' }} onClick={() => navigate('/recordings')}>
-          <ArrowLeft size={14} /> Back
+          <Icon name="arrow-left-line" size={16} /> Back
         </button>
         <PlatformBadge platform={recording.platform} size="md" />
         <span style={{ fontFamily: 'var(--font-ui)', fontSize: 16, fontWeight: 700, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-display)' }}>
@@ -98,18 +100,30 @@ export function RecordingDetail() {
         {recording.status === 'recording' && <span className="badge badge-rec">● REC</span>}
         {isActive && (
           <button className="btn btn-danger" onClick={handleStop} disabled={stopping} style={{ gap: 6 }}>
-            <StopCircle size={14} />
+            <Icon name="stop-circle-line" size={16} />
             {stopping ? 'Stopping…' : 'Stop Recording'}
+          </button>
+        )}
+        {recording.file_path && recording.status === 'completed' && (
+          <button
+            className="btn btn-primary"
+            style={{ gap: 6 }}
+            onClick={() => {
+              loadPlayer({ id: recording.id, kind: 'recording', filePath: recording.file_path!, title: recording.title ?? 'Untitled stream', durationSecs: recording.duration_secs, platform: recording.platform })
+              navigate('/player')
+            }}
+          >
+            <Icon name="play-circle-line" size={16} /> Play
           </button>
         )}
         <button
           className="btn btn-ghost"
           onClick={() => recording.file_path && window.electronAPI.recordingsOpenFolder(recording.file_path)}
         >
-          <FolderOpen size={13} /> Open Folder
+          <Icon name="folder-open-line" size={16} /> Open Folder
         </button>
         <button className="btn btn-danger" onClick={handleDelete}>
-          <Trash2 size={13} /> Delete
+          <Icon name="delete-bin-line" size={16} /> Delete
         </button>
       </div>
 
@@ -143,7 +157,7 @@ export function RecordingDetail() {
       <div ref={metaGridRef} className="rec-detail-meta-grid" style={{ marginBottom: 20 }}>
         {[
           ['Streamer',    recording.streamer_name],
-          ['Platform',   recording.platform],
+          ['Platform',   <PlatformBadge key="platform-badge" platform={recording.platform} size="sm" />],
           ['Date',       formatDateTime(recording.stream_date)],
           ['Duration',   elapsed !== null ? `${formatDuration(elapsed)} ●` : formatDuration(recording.duration_secs)],
           ['File Size',  formatBytes(recording.file_size_bytes) + (isActive ? ' (growing)' : '')],
@@ -151,9 +165,8 @@ export function RecordingDetail() {
           ['Video',      recording.video_codec?.toUpperCase() ?? (isActive ? 'recording...' : '—')],
           ['Audio',      recording.audio_codec?.toUpperCase() ?? (isActive ? 'recording...' : '—')],
           ['FPS',        recording.fps ? `${recording.fps} fps` : '—'],
-          ['Language',   recording.language ?? '—'],
-          ['Viewers',    recording.viewer_count?.toLocaleString() ?? '—'],
-          ['Category',   recording.category ?? '—'],
+          ['Viewers',    normalizedViewers],
+          ['Category',   normalizedCategory],
           ['Status',     recording.status],
         ].map(([label, value]) => (
           <div key={label} className="rec-detail-meta-cell">
@@ -163,6 +176,73 @@ export function RecordingDetail() {
             </span>
           </div>
         ))}
+      </div>
+
+      {/* ── Clips section ── */}
+      <ClipsSection recordingId={recording.id} recording={recording} />
+    </div>
+  )
+}
+
+function ClipsSection({ recordingId, recording }: { recordingId: number; recording: Recording }) {
+  const loadPlayer = usePlayerStore(s => s.load)
+  const navigate   = useNavigate()
+
+  const { data: clipsData = [] } = useQuery<Clip[]>({
+    queryKey: ['clips', 'recording', recordingId],
+    queryFn: () => window.electronAPI.clipsGetByRecording(recordingId) as Promise<Clip[]>,
+    staleTime: 10_000,
+  })
+
+  if (clipsData.length === 0) return null
+
+  return (
+    <div className="section" style={{ marginTop: 8 }}>
+      <div className="section-header">
+        <Icon name="scissors-2-line" size={16} />
+        <span className="section-title">Clips ({clipsData.length})</span>
+      </div>
+      <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingTop: 12, paddingBottom: 4 }}>
+        {clipsData.map(clip => {
+          const thumb = fileUrl(clip.thumbnail_path)
+          return (
+            <div
+              key={clip.id}
+              style={{
+                flexShrink: 0, width: 180, cursor: 'pointer',
+                background: 'var(--surface)', borderRadius: 'var(--radius-xs)',
+                border: '1px solid var(--border)', overflow: 'hidden',
+                transition: 'border-color 150ms',
+              }}
+              onClick={() => {
+                const fp = clip.file_path ?? recording.file_path
+                if (!fp) return
+                loadPlayer({ id: clip.id, kind: 'clip', filePath: fp, title: clip.title ?? 'Clip', durationSecs: clip.duration_secs, platform: recording.platform })
+                navigate('/player')
+              }}
+            >
+              <div style={{ aspectRatio: '16/9', background: '#000', position: 'relative', overflow: 'hidden' }}>
+                {thumb
+                  ? <img src={thumb} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.8 }} />
+                  : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-disabled)' }}><Icon name="scissors-2-line" size={16} /></div>
+                }
+                {clip.duration_secs && (
+                  <div style={{ position: 'absolute', bottom: 4, right: 6, background: 'rgba(0,0,0,0.8)', borderRadius: 3, padding: '1px 5px', fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700, color: '#fff' }}>
+                    {formatDuration(clip.duration_secs)}
+                  </div>
+                )}
+              </div>
+              <div style={{ padding: '6px 8px' }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-display)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {clip.title ?? 'Untitled clip'}
+                </div>
+                <div style={{ fontSize: 10, color: 'var(--text-disabled)', marginTop: 2 }}>
+                  {formatDate(clip.created_at)}
+                </div>
+              </div>
+            </div>
+          )
+        })}
       </div>
     </div>
   )

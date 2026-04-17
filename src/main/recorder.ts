@@ -1,7 +1,7 @@
 import { spawn, ChildProcess } from 'child_process'
 import { existsSync, mkdirSync } from 'fs'
 import path from 'path'
-import { BrowserWindow, Notification } from 'electron'
+import { app, BrowserWindow, Notification } from 'electron'
 import { statSync } from 'fs'
 import { getBinPath, extractMetadata, extractThumbnail, captureSnapshot } from './ffmpeg'
 import { recordings } from './db'
@@ -37,6 +37,20 @@ function send(channel: string, data: unknown): void {
 function getStoragePath(): string {
   const p = store.get('storagePath') as string | undefined
   return p || require('path').join(require('os').homedir(), 'Videos', 'StreamVault')
+}
+
+function getRecordingThumbsDir(): string {
+  const dir = path.join(app.getPath('userData'), 'thumbs', 'recordings')
+  mkdirSync(dir, { recursive: true })
+  return dir
+}
+
+function getSnapshotPath(recordingId: number): string {
+  return path.join(getRecordingThumbsDir(), `recording_${recordingId}_snap.jpg`)
+}
+
+function getFinalThumbPath(recordingId: number): string {
+  return path.join(getRecordingThumbsDir(), `recording_${recordingId}_thumb.jpg`)
 }
 
 function getQualityFormat(quality?: string, platform?: string): string {
@@ -116,7 +130,7 @@ export async function startRecording(
       markRecordingFinished(streamerId)
       return
     }
-    spawnFfmpegDownload(recordingId, streamerId, m3u8, finalPath, finalPath)
+    spawnFfmpegDownload(recordingId, streamerId, m3u8, finalPath)
     return
   }
 
@@ -201,7 +215,7 @@ export async function startRecording(
       recordings.update(recordingId, { file_size_bytes: size })
       send('recording:sizeUpdate', { recordingId, fileSize: size })
     } catch { /* ignore */ }
-    const snapshotPath = tempPath.replace(/\.[^.]+$/, '_snap.jpg')
+    const snapshotPath = getSnapshotPath(recordingId)
     const ok = await captureSnapshot(tempPath, snapshotPath)
     if (ok) {
       recordings.update(recordingId, { thumbnail_path: snapshotPath })
@@ -210,7 +224,7 @@ export async function startRecording(
   }, 30000)
   setTimeout(async () => {
     if (!active.has(recordingId) || !existsSync(tempPath)) return
-    const snapshotPath = tempPath.replace(/\.[^.]+$/, '_snap.jpg')
+    const snapshotPath = getSnapshotPath(recordingId)
     const ok = await captureSnapshot(tempPath, snapshotPath)
     if (ok) {
       recordings.update(recordingId, { thumbnail_path: snapshotPath })
@@ -264,7 +278,7 @@ export async function startRecording(
   })
 }
 
-function spawnFfmpegDownload(recordingId: number, streamerId: number, inputUrl: string, outputPath: string, finalPath: string): void {
+function spawnFfmpegDownload(recordingId: number, streamerId: number, inputUrl: string, finalPath: string): void {
   const ffmpeg = getBinPath('ffmpeg')
   // Download directly to mp4 with faststart for Kick VODs
   const proc = spawn(ffmpeg, ['-i', inputUrl, '-c', 'copy', '-movflags', '+faststart', '-y', finalPath])
@@ -293,7 +307,7 @@ function remuxWithTimeout(tsPath: string, finalPath: string, timeoutMs = 120_000
     const proc = spawn(ffmpegBin, [
       '-i', tsPath,
       '-c', 'copy',
-      '-movflags', '+faststart',
+      '-avoid_negative_ts', '1',
       '-y',
       finalPath,
     ], { stdio: ['ignore', 'ignore', 'pipe'] })
@@ -331,6 +345,11 @@ async function onRecordingFinished(recordingId: number, tsPath: string, finalPat
 
   let finalFile = finalPath
   if (tsPath !== finalPath) {
+    // Notify renderer that remux is starting (natural stream ends haven't sent this yet;
+    // manual stopRecording() already sent it — sending twice is harmless/idempotent)
+    recordings.update(recordingId, { status: 'processing' as never })
+    send('recording:stopping', { recordingId })
+
     // Remux .ts → target container (stream copy, no re-encode)
     const ok = await remuxWithTimeout(tsPath, finalPath)
     if (ok) {
@@ -338,11 +357,22 @@ async function onRecordingFinished(recordingId: number, tsPath: string, finalPat
     } else {
       finalFile = tsPath
       recordings.update(recordingId, { file_path: tsPath })
+      const ffmpegBin = getBinPath('ffmpeg')
+      console.error('[recorder] remux failed for recording', recordingId,
+        '— keeping .ts at', tsPath,
+        '| ffmpeg expected at:', ffmpegBin,
+        '| exists:', existsSync(ffmpegBin))
+      if (Notification.isSupported()) {
+        new Notification({
+          title: 'Recording saved as .ts (MP4 conversion failed)',
+          body: `FFmpeg could not convert to MP4. File saved as .ts. Check FFmpeg at: ${ffmpegBin}`,
+        }).show()
+      }
     }
   }
 
   const meta = await extractMetadata(finalFile)
-  const thumbPath = finalFile.replace(/\.[^.]+$/, '_thumb.jpg')
+  const thumbPath = getFinalThumbPath(recordingId)
   await extractThumbnail(finalFile, thumbPath, Math.min(30, (meta.duration ?? 60) * 0.1))
 
   const rec = recordings.getById(recordingId) as { title?: string; streamer_id?: number } | undefined
@@ -442,7 +472,7 @@ export function getActiveIds(): number[] {
   return Array.from(active.keys())
 }
 
-export function isActivelyRecording(streamerId: number, recordingIds: number[]): boolean {
+export function isActivelyRecording(_streamerId: number, recordingIds: number[]): boolean {
   return recordingIds.some(id => active.has(id))
 }
 

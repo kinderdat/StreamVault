@@ -30,13 +30,20 @@ export function formatElapsed(startedAt: number): string {
   return formatDuration(secs)
 }
 
-/** Returns a URL suitable for use in <video src> or <img src>.
- *  Remote URLs pass through. Local paths use media:// protocol
- *  which serves files with correct MIME types + range-request support. */
+/** Returns a URL suitable for use in <img src> (and legacy fallbacks).
+ *  Prefer native file:// via preload in Electron; custom media:// only if unavailable. */
 export function fileUrl(filePath: string | null | undefined): string | undefined {
   if (!filePath) return undefined
-  if (filePath.startsWith('http://') || filePath.startsWith('https://')) return filePath
-  // Encode each path segment to handle spaces and special chars, but preserve slashes
+  if (filePath.startsWith('http://') || filePath.startsWith('https://') || filePath.startsWith('file://')) {
+    return filePath
+  }
+  if (typeof window !== 'undefined' && window.electronAPI?.toFileUrl) {
+    try {
+      return window.electronAPI.toFileUrl(filePath)
+    } catch {
+      /* fall through */
+    }
+  }
   const encoded = filePath
     .replace(/\\/g, '/')
     .split('/')

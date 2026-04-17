@@ -6,17 +6,20 @@ import { useSettingsStore } from '../stores/settingsStore'
 import { PlatformBadge } from '../components/PlatformBadge'
 import { formatElapsed, formatBytes, fileUrl } from '../utils/format'
 import { staggerIn, countUp, fadeSlideIn } from '../utils/anime'
+import { useDiskSpace } from '../hooks/useDiskSpace'
+import { Icon } from '../components/Icon'
 
 export function Dashboard() {
   const { streamers } = useStreamersStore()
   const { recordings, activeIds, stop: stopRecording, load: reloadRecordings } = useRecordingsStore()
   const storagePath = useSettingsStore(s => s.settings.storagePath as string | undefined)
   const [stats, setStats] = useState({ total: 0, active: 0, failed: 0, total_duration: 0, last_24h: 0 })
-  const [disk, setDisk] = useState<{ free: number; total: number } | null>(null)
+  const { data: disk } = useDiskSpace(storagePath)
   const [elapsed, setElapsed] = useState<Record<number, string>>({})
   const statsGridRef = useRef<HTMLDivElement>(null)
   const recListRef = useRef<HTMLDivElement>(null)
   const prevActiveSize = useRef(0)
+  const fadeSlideScope = useRef<ReturnType<typeof createScope> | null>(null)
 
   function refreshStats() {
     window.electronAPI.recordingsGetStats().then(setStats)
@@ -30,16 +33,6 @@ export function Dashboard() {
   useEffect(() => {
     refreshStats()
   }, [recordings.length])
-
-  // Disk usage — refresh on mount and every 60s
-  useEffect(() => {
-    if (!storagePath) return
-    const fetchDisk = () =>
-      window.electronAPI.getDiskSpace(storagePath).then(setDisk)
-    fetchDisk()
-    const t = setInterval(fetchDisk, 60000)
-    return () => clearInterval(t)
-  }, [storagePath])
 
   // Stagger stat cards in on mount
   useEffect(() => {
@@ -55,10 +48,14 @@ export function Dashboard() {
     if (newSize > prevActiveSize.current && recListRef.current) {
       const rows = recListRef.current.querySelectorAll('.db-rec-row')
       const newRow = rows[rows.length - 1]
-      if (newRow) fadeSlideIn(newRow)
+      if (newRow) {
+        fadeSlideScope.current?.revert()
+        fadeSlideScope.current = createScope({ root: recListRef.current })
+        fadeSlideScope.current.add(() => fadeSlideIn(newRow))
+      }
     }
     prevActiveSize.current = newSize
-  }, [activeIds.size])
+  }, [activeIds])
 
   useEffect(() => {
     if (activeIds.size === 0) return
@@ -177,8 +174,8 @@ export function Dashboard() {
                     <span className="db-rec-row-title">{rec.title ?? 'Live stream'}</span>
                   </div>
                   <span className="db-rec-row-timer">{elapsed[rec.id] ?? '0:00'}</span>
-                  <button className="btn btn-danger btn-sm" onClick={() => stopRecording(rec.id)}>
-                    ■ STOP
+                  <button className="btn btn-danger btn-sm" style={{ gap: 6, alignItems: 'center' }} onClick={() => stopRecording(rec.id)}>
+                    <Icon name="stop-circle-line" size={16} /> Stop
                   </button>
                 </div>
               )

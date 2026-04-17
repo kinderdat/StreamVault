@@ -1,16 +1,17 @@
-import { useState, useMemo, useEffect, useRef } from 'react'
+import { useState, useMemo, useEffect, useLayoutEffect, useRef } from 'react'
 import { useNavigate } from 'react-router'
-import { animate } from 'animejs'
-import { Search, Grid, List, Video, Play, FolderOpen, Trash2, ChevronDown } from 'lucide-react'
+import { animate, createScope } from 'animejs'
 import { useRecordingsStore } from '../stores/recordingsStore'
+import { usePlayerStore } from '../stores/playerStore'
 import { PlatformBadge } from '../components/PlatformBadge'
 import { RSelect, ROption } from '../components/RSelect'
 import { formatDuration, formatBytes, formatDate, formatDateTime, fileUrl } from '../utils/format'
 import { staggerIn, accordionOpen, accordionClose } from '../utils/anime'
 import type { Recording } from '../types/domain'
+import { Icon } from '../components/Icon'
 
 export function Recordings() {
-  const { recordings, activeIds, delete: deleteRec } = useRecordingsStore()
+  const { recordings, activeIds, loading, delete: deleteRec } = useRecordingsStore()
   const navigate = useNavigate()
   const [search, setSearch] = useState('')
   const [platformFilter, setPlatformFilter] = useState('all')
@@ -58,9 +59,12 @@ export function Recordings() {
     const container = view === 'grid' ? gridRef.current : listRef.current
     if (!container) return
     const selector = view === 'grid' ? '.recording-card' : '.recording-row'
-    // Small delay so DOM has rendered
-    const t = setTimeout(() => staggerIn(container.querySelectorAll(selector), { delay: 35, distance: 10 }), 30)
-    return () => clearTimeout(t)
+    let scope: ReturnType<typeof createScope> | null = null
+    const t = setTimeout(() => {
+      scope = createScope({ root: container })
+      scope.add(() => staggerIn(container.querySelectorAll(selector), { delay: 35, distance: 10 }))
+    }, 30)
+    return () => { clearTimeout(t); scope?.revert() }
   }, [filterKey])
 
   async function handleDelete(e: React.MouseEvent, id: number) {
@@ -75,7 +79,7 @@ export function Recordings() {
       {/* Toolbar */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
         <div className="search-bar" style={{ flex: 1, minWidth: 200, marginBottom: 0 }}>
-          <Search size={14} style={{ color: 'var(--text-disabled)', flexShrink: 0 }} />
+          <Icon name="search-line" size={16} style={{ color: 'var(--text-disabled)', flexShrink: 0 }} />
           <input className="search-input" placeholder="Search recordings..." value={search} onChange={e => setSearch(e.target.value)} />
         </div>
         <RSelect value={platformFilter} onValueChange={setPlatformFilter} minWidth={150}>
@@ -96,10 +100,10 @@ export function Recordings() {
         </RSelect>
         <div className="view-toggle">
           <button className={`view-toggle-btn ${view === 'grid' ? 'active' : ''}`} onClick={() => setView('grid')} title="Grid view">
-            <Grid size={14} />
+            <Icon name="layout-grid-line" size={16} />
           </button>
           <button className={`view-toggle-btn ${view === 'list' ? 'active' : ''}`} onClick={() => setView('list')} title="List view">
-            <List size={14} />
+            <Icon name="list-unordered" size={16} />
           </button>
         </div>
       </div>
@@ -108,9 +112,15 @@ export function Recordings() {
         {filtered.length} recording{filtered.length !== 1 ? 's' : ''}
       </div>
 
-      {filtered.length === 0 ? (
+      {loading ? (
+        <div className="recordings-list" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="skeleton-row" />
+          ))}
+        </div>
+      ) : filtered.length === 0 ? (
         <div className="empty-state">
-          <Video size={40} className="empty-state-icon" />
+          <Icon name="video-line" size={20} className="empty-state-icon" />
           <h3>No recordings</h3>
           <p>Add streamers to the monitor and recordings will appear here automatically.</p>
         </div>
@@ -146,17 +156,32 @@ function GridCard({ rec, isActive, onOpen, onDelete, deleting }: {
   rec: Recording; isActive: boolean
   onOpen: () => void; onDelete: (e: React.MouseEvent) => void; deleting: boolean
 }) {
-  const thumb = fileUrl(rec.thumbnail_path)
+  const thumb     = fileUrl(rec.thumbnail_path)
+  const navigate  = useNavigate()
+  const loadPlayer = usePlayerStore(s => s.load)
+
+  function onPlay(e: React.MouseEvent) {
+    e.stopPropagation()
+    if (!rec.file_path) return
+    loadPlayer({ id: rec.id, kind: 'recording', filePath: rec.file_path, title: rec.title ?? 'Untitled stream', durationSecs: rec.duration_secs, platform: rec.platform })
+    navigate('/player')
+  }
+
   return (
     <div className="recording-card" onClick={onOpen}>
       <div className="recording-card-thumb">
         {thumb ? <img src={thumb} alt={rec.title ?? ''} loading="lazy" /> : (
-          <div className="recording-card-thumb-placeholder"><Video size={32} /></div>
+          <div className="recording-card-thumb-placeholder"><Icon name="video-line" size={20} /></div>
         )}
         <div className="recording-card-overlay">
           <PlatformBadge platform={rec.platform} />
-          {isActive ? <span className="badge badge-rec">REC</span> : null}
+          {isActive ? <span className="badge badge-rec recording-live-badge">REC</span> : null}
         </div>
+        {rec.file_path && !isActive && (
+          <button className="card-play-btn" onClick={onPlay} title="Play in player">
+            <Icon name="play-circle-fill" size={20} />
+          </button>
+        )}
         {rec.duration_secs && (
           <div className="recording-card-duration">{formatDuration(rec.duration_secs)}</div>
         )}
@@ -164,10 +189,18 @@ function GridCard({ rec, isActive, onOpen, onDelete, deleting }: {
       <div className="recording-card-body">
         <div className="recording-card-title">{rec.title ?? 'Untitled stream'}</div>
         <div className="recording-card-meta">
-          <span className="recording-card-streamer">{rec.streamer_name}</span>
-          {rec.category && <span className="badge badge-neutral" style={{ maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{rec.category}</span>}
+          <span className="recording-card-streamer recording-streamer-fancy">{rec.streamer_name}</span>
+          <span className={`badge ${rec.status === 'failed' ? 'badge-failed' : isActive ? 'badge-rec' : 'badge-completed'}`}>
+            {rec.status === 'failed' ? 'FAILED' : isActive ? 'REC' : 'SAVED'}
+          </span>
+        </div>
+        <div className="recording-card-stats">
+          {rec.duration_secs && <span className="badge badge-neutral">{formatDuration(rec.duration_secs)}</span>}
           {rec.resolution && <span className="badge badge-neutral">{rec.resolution.split('x')[1]}p</span>}
-          <span style={{ fontSize: 11, color: 'var(--text-disabled)', marginLeft: 'auto' }}>{formatDate(rec.stream_date)}</span>
+          {rec.video_codec && <span className="badge badge-neutral">{rec.video_codec.toUpperCase()}</span>}
+          {rec.file_size_bytes && <span className="badge badge-neutral">{formatBytes(rec.file_size_bytes)}</span>}
+          {rec.category && <span className="badge badge-neutral recording-card-category">{rec.category}</span>}
+          <span className="recording-card-date">{formatDate(rec.stream_date)}</span>
         </div>
       </div>
     </div>
@@ -179,10 +212,32 @@ function ListRow({ rec, isActive, expanded, onToggleExpand, onOpen, onDelete, on
   onToggleExpand: () => void; onOpen: () => void
   onDelete: (e: React.MouseEvent) => void; onOpenFolder: (e: React.MouseEvent) => void; deleting: boolean
 }) {
+  const navigate   = useNavigate()
+  const loadPlayer = usePlayerStore(s => s.load)
+
+  function onPlay(e: React.MouseEvent) {
+    e.stopPropagation()
+    if (!rec.file_path) return
+    loadPlayer({ id: rec.id, kind: 'recording', filePath: rec.file_path, title: rec.title ?? 'Untitled stream', durationSecs: rec.duration_secs, platform: rec.platform })
+    navigate('/player')
+  }
   const thumb = fileUrl(rec.thumbnail_path)
   const accordionRef = useRef<HTMLDivElement>(null)
   const chevronRef = useRef<HTMLDivElement>(null)
   const isFirstRender = useRef(true)
+  const normalizedCategory = rec.category?.trim() || 'Uncategorized'
+  const normalizedViewers = rec.viewer_count != null ? rec.viewer_count.toLocaleString() : 'Not captured'
+
+  // Set initial collapsed state imperatively so React's style prop never owns
+  // display/height/opacity — those are managed entirely by accordionOpen/accordionClose.
+  useLayoutEffect(() => {
+    const el = accordionRef.current
+    if (el) {
+      el.style.display = 'none'
+      el.style.height = '0'
+      el.style.opacity = '0'
+    }
+  }, [])
 
   // Accordion + chevron animation on expand/collapse
   useEffect(() => {
@@ -209,13 +264,13 @@ function ListRow({ rec, isActive, expanded, onToggleExpand, onOpen, onDelete, on
     <div>
       <div className="recording-row" onClick={onToggleExpand}>
         <div className="recording-row-thumb">
-          {thumb ? <img src={thumb} alt="" loading="lazy" /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-disabled)' }}><Video size={18} /></div>}
+          {thumb ? <img src={thumb} alt="" loading="lazy" /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-disabled)' }}><Icon name="video-line" size={16} /></div>}
         </div>
         <div className="recording-row-info">
           <div className="recording-row-title">{rec.title ?? 'Untitled stream'}</div>
           <div className="recording-row-sub">
             <PlatformBadge platform={rec.platform} />
-            <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{rec.streamer_name}</span>
+            <span className="recording-streamer-fancy" style={{ fontSize: 12 }}>{rec.streamer_name}</span>
             {rec.duration_secs && <span className="badge badge-neutral">{formatDuration(rec.duration_secs)}</span>}
             {rec.resolution && <span className="badge badge-neutral">{rec.resolution.split('x')[1]}p</span>}
             {rec.video_codec && <span className="badge badge-neutral">{rec.video_codec.toUpperCase()}</span>}
@@ -226,27 +281,32 @@ function ListRow({ rec, isActive, expanded, onToggleExpand, onOpen, onDelete, on
           </div>
         </div>
         <div className="recording-row-actions" onClick={e => e.stopPropagation()}>
-          <button className="btn btn-ghost" style={{ padding: '4px 8px' }} onClick={onOpen} title="View details">
-            <Play size={13} />
+          {rec.file_path && !isActive && (
+          <button className="btn btn-ghost recording-row-icon-btn" style={{ color: 'var(--accent)' }} onClick={onPlay} title="Play in player">
+              <Icon name="play-circle-line" size={16} />
+            </button>
+          )}
+          <button className="btn btn-ghost recording-row-icon-btn" onClick={onOpen} title="View details">
+            <Icon name="article-line" size={16} />
           </button>
-          <button className="btn btn-ghost" style={{ padding: '4px 8px' }} onClick={onOpenFolder} title="Open folder">
-            <FolderOpen size={13} />
+          <button className="btn btn-ghost recording-row-icon-btn" onClick={onOpenFolder} title="Open folder">
+            <Icon name="folder-open-line" size={16} />
           </button>
-          <button className="btn btn-ghost" style={{ padding: '4px 8px', color: 'var(--accent)' }} onClick={onDelete} disabled={deleting} title="Delete">
-            <Trash2 size={13} />
+          <button className="btn btn-ghost recording-row-icon-btn" style={{ color: 'var(--accent)' }} onClick={onDelete} disabled={deleting} title="Delete">
+            <Icon name="delete-bin-line" size={16} />
           </button>
           <div ref={chevronRef} style={{ color: 'var(--text-disabled)', display: 'flex', alignItems: 'center' }}>
-            <ChevronDown size={14} />
+            <Icon name="arrow-down-s-line" size={16} />
           </div>
         </div>
       </div>
 
-      {/* Accordion — always in DOM, animated open/close */}
+      {/* Accordion — always in DOM; display/height/opacity are managed by accordionOpen/Close */}
       <div
         ref={accordionRef}
         className="accordion-content"
-        style={{ height: 0, overflow: 'hidden', opacity: 0, display: expanded ? 'block' : 'none' }}
       >
+        <div className="accordion-field"><label>Platform</label><span><PlatformBadge platform={rec.platform} /></span></div>
         <div className="accordion-field"><label>Date</label><span>{formatDateTime(rec.stream_date)}</span></div>
         <div className="accordion-field"><label>Duration</label><span>{formatDuration(rec.duration_secs)}</span></div>
         <div className="accordion-field"><label>File Size</label><span>{formatBytes(rec.file_size_bytes)}</span></div>
@@ -254,9 +314,8 @@ function ListRow({ rec, isActive, expanded, onToggleExpand, onOpen, onDelete, on
         <div className="accordion-field"><label>Video Codec</label><span>{rec.video_codec?.toUpperCase() ?? '--'}</span></div>
         <div className="accordion-field"><label>Audio Codec</label><span>{rec.audio_codec?.toUpperCase() ?? '--'}</span></div>
         <div className="accordion-field"><label>FPS</label><span>{rec.fps ? `${rec.fps}fps` : '--'}</span></div>
-        <div className="accordion-field"><label>Language</label><span>{rec.language ?? '--'}</span></div>
-        <div className="accordion-field"><label>Viewers</label><span>{rec.viewer_count?.toLocaleString() ?? '--'}</span></div>
-        {rec.category && <div className="accordion-field"><label>Category</label><span>{rec.category}</span></div>}
+        <div className="accordion-field"><label>Viewers</label><span>{normalizedViewers}</span></div>
+        <div className="accordion-field"><label>Category</label><span>{normalizedCategory}</span></div>
       </div>
     </div>
   )

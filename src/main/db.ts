@@ -204,3 +204,68 @@ export const recordings = {
   },
 }
 
+// ── Clip queries ─────────────────────────────────────────────────
+export const clips = {
+  getAll() {
+    return getDb().prepare(`
+      SELECT c.*,
+        r.title  as recording_title, r.file_path as recording_file_path,
+        s.display_name as streamer_name, s.platform
+      FROM clips c
+      JOIN recordings r ON c.recording_id = r.id
+      JOIN streamers  s ON r.streamer_id  = s.id
+      ORDER BY c.created_at DESC
+    `).all()
+  },
+  getByRecording(recordingId: number) {
+    return getDb().prepare(`
+      SELECT c.*, r.title as recording_title
+      FROM clips c
+      JOIN recordings r ON c.recording_id = r.id
+      WHERE c.recording_id = ?
+      ORDER BY c.start_secs ASC
+    `).all(recordingId)
+  },
+  getById(id: number) {
+    return getDb().prepare(`
+      SELECT c.*,
+        r.title as recording_title, r.file_path as recording_file_path,
+        s.display_name as streamer_name, s.platform
+      FROM clips c
+      JOIN recordings r ON c.recording_id = r.id
+      JOIN streamers  s ON r.streamer_id  = s.id
+      WHERE c.id = ?
+    `).get(id)
+  },
+  create(data: {
+    recording_id: number
+    title: string
+    start_secs: number
+    end_secs: number
+    file_path?: string
+    thumbnail_path?: string
+    duration_secs?: number
+  }) {
+    const { lastInsertRowid } = getDb().prepare(`
+      INSERT INTO clips (recording_id, title, start_secs, end_secs, file_path,
+        thumbnail_path, duration_secs, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      data.recording_id, data.title, data.start_secs, data.end_secs,
+      data.file_path ?? null, data.thumbnail_path ?? null,
+      data.duration_secs ?? null, Date.now()
+    )
+    return Number(lastInsertRowid)
+  },
+  update(id: number, data: Partial<{ title: string; file_path: string; thumbnail_path: string; duration_secs: number }>) {
+    const sets = Object.keys(data).map(k => `${k} = ?`).join(', ')
+    if (!sets) return
+    getDb().prepare(`UPDATE clips SET ${sets} WHERE id = ?`).run(...Object.values(data), id)
+  },
+  delete(id: number) {
+    const row = getDb().prepare('SELECT file_path, thumbnail_path FROM clips WHERE id = ?').get(id) as { file_path?: string; thumbnail_path?: string } | undefined
+    getDb().prepare('DELETE FROM clips WHERE id = ?').run(id)
+    return row
+  },
+}
+

@@ -1,4 +1,4 @@
-import { BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow, ipcMain } from 'electron'
 
 export function registerWindowIpc(win: BrowserWindow): void {
   ipcMain.handle('window:minimize', () => win.minimize())
@@ -14,6 +14,8 @@ export function registerWindowIpc(win: BrowserWindow): void {
   ipcMain.handle('window:close', () => win.close())
 
   ipcMain.handle('window:isMaximized', () => win.isMaximized())
+
+  ipcMain.handle('app:getVersion', () => app.getVersion())
 
   win.on('maximize', () => win.webContents.send('window:maximized', true))
   win.on('unmaximize', () => win.webContents.send('window:maximized', false))

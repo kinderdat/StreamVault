@@ -1,5 +1,5 @@
-import * as Select from '@radix-ui/react-select'
-import { ChevronDown, Check } from 'lucide-react'
+import { Select } from './ui/select'
+import { Icon } from './Icon'
 
 interface RSelectProps {
   value: string
@@ -27,7 +27,7 @@ export function RSelect({ value, onValueChange, children, minWidth = 140 }: RSel
       >
         <Select.Value />
         <Select.Icon style={{ marginLeft: 'auto', color: 'var(--text-disabled)' }}>
-          <ChevronDown size={14} />
+          <Icon name="arrow-down-s-line" size={16} />
         </Select.Icon>
       </Select.Trigger>
       <Select.Portal>
@@ -68,8 +68,8 @@ export function ROption({ value, children }: { value: string; children: React.Re
       onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
     >
       <Select.ItemText>{children}</Select.ItemText>
-      <Select.ItemIndicator style={{ position: 'absolute', right: 10 }}>
-        <Check size={12} style={{ color: 'var(--accent)' }} />
+      <Select.ItemIndicator style={{ position: 'absolute', right: 10, color: 'var(--accent)' }}>
+        <Icon name="check-line" size={16} />
       </Select.ItemIndicator>
     </Select.Item>
   )

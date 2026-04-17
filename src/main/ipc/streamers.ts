@@ -1,23 +1,28 @@
 import { ipcMain, BrowserWindow } from 'electron'
+import { z } from 'zod'
 import { streamers } from '../db'
 import { detectPlatform, extractUsername, fetchAvatarUrl } from '../platforms'
 import { checkStreamerNow } from '../monitor'
 
-let _win: BrowserWindow | null = null
-export function setStreamersWindow(win: BrowserWindow): void { _win = win }
+const streamerIdSchema = z.number().int().positive()
+const channelUrlSchema = z.string().trim().url().max(512)
+const activeSchema = z.boolean()
 
-function sendToRenderer(channel: string, data: unknown): void {
-  _win?.webContents.send(channel, data)
-}
+export function setStreamersWindow(_win: BrowserWindow): void {}
 
 export function registerStreamersIpc(): void {
   ipcMain.handle('streamers:getAll', () => streamers.getAll())
 
   ipcMain.handle('streamers:add', async (_event, channelUrl: string) => {
-    const platform = detectPlatform(channelUrl)
-    const username = extractUsername(channelUrl, platform)
+    const safeChannelUrl = channelUrlSchema.parse(channelUrl)
+    const parsedUrl = new URL(safeChannelUrl)
+    if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+      throw new Error('Only http/https channel URLs are allowed')
+    }
+    const platform = detectPlatform(safeChannelUrl)
+    const username = extractUsername(safeChannelUrl, platform)
     try {
-      const row = streamers.add({ platform, username, channel_url: channelUrl, display_name: username }) as Record<string, unknown>
+      const row = streamers.add({ platform, username, channel_url: safeChannelUrl, display_name: username }) as Record<string, unknown>
       const id = row.id as number
       // Block on avatar fetch so PFP is included in the returned row immediately
       try {
@@ -36,15 +41,15 @@ export function registerStreamersIpc(): void {
   })
 
   ipcMain.handle('streamers:remove', (_event, id: number) => {
-    streamers.remove(id)
+    streamers.remove(streamerIdSchema.parse(id))
   })
 
   ipcMain.handle('streamers:setActive', (_event, id: number, active: boolean) => {
-    streamers.setActive(id, active)
+    streamers.setActive(streamerIdSchema.parse(id), activeSchema.parse(active))
   })
 
   ipcMain.handle('streamers:checkNow', (_event, id: number) => {
-    return checkStreamerNow(id)
+    return checkStreamerNow(streamerIdSchema.parse(id))
   })
 
   // Refresh avatars for all streamers that don't have one yet

@@ -1,33 +1,19 @@
-import { useRef, useState, useEffect } from 'react'
+import { useRef, useState, useEffect, useMemo } from 'react'
 import { animate, createScope } from 'animejs'
-import { RefreshCw, Plus, Radio, ExternalLink, Video, Link2 } from 'lucide-react'
 import { useNavigate } from 'react-router'
 import { staggerIn } from '../utils/anime'
 import { useStreamersStore } from '../stores/streamersStore'
 import { useRecordingsStore } from '../stores/recordingsStore'
-import { PlatformBadge } from '../components/PlatformBadge'
+import { PlatformBadge, getPlatformColor } from '../components/PlatformBadge'
 import { formatDate } from '../utils/format'
 import type { Streamer } from '../types/domain'
-
-const platformColor: Record<string, string> = {
-  twitch:      '#9146ff',
-  kick:        '#53fc18',
-  youtube:     '#ff0000',
-  tiktok:      '#fe2c55',
-  afreeca:     '#006aff',
-  panda:       '#ff6600',
-  flextv:      '#7c3aed',
-  bilibili:    '#00a1d6',
-  twitcasting: '#e04a2f',
-  rumble:      '#85c742',
-  douyin:      '#69c9d0',
-}
+import { Icon } from '../components/Icon'
 
 /* ── Avatar ──────────────────────────────────────────────────── */
 function AvatarImg({ streamer, size }: { streamer: Streamer; size: number }) {
   const [err, setErr] = useState(false)
   const initial = (streamer.display_name[0] ?? streamer.username[0] ?? '?').toUpperCase()
-  const color = platformColor[streamer.platform] ?? 'var(--accent)'
+  const color = getPlatformColor(streamer.platform)
   if (streamer.avatar_url && !err) {
     return <img src={streamer.avatar_url} alt={streamer.display_name} onError={() => setErr(true)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
   }
@@ -47,9 +33,14 @@ function StreamerCard({
 }) {
   const navigate = useNavigate()
   const cardRef = useRef<HTMLDivElement>(null)
-  const isActive = streamer.is_active === 1
-  const accent = platformColor[streamer.platform] ?? 'var(--accent)'
+  const isActive = streamer.is_active
+  const accent = getPlatformColor(streamer.platform)
   const [hovered, setHovered] = useState(false)
+  const hasNonAsciiDisplayName = /[^\x00-\x7F]/.test(streamer.display_name)
+  const hasAsciiUsername = /^[\x00-\x7F]+$/.test(streamer.username)
+  const preferUsernamePrimary = streamer.platform.toLowerCase() === 'twitch' && hasNonAsciiDisplayName && hasAsciiUsername
+  const primaryName = preferUsernamePrimary ? streamer.username : streamer.display_name
+  const secondaryHandle = preferUsernamePrimary ? streamer.display_name : `@${streamer.username}`
 
   // Anime.js hover micro-animations
   useEffect(() => {
@@ -91,7 +82,7 @@ function StreamerCard({
       className="streamer-card-anim"
       style={{
         position: 'relative', isolation: 'isolate',
-        background: 'var(--surface)',
+        background: 'transparent',
         border: `1px solid ${isRecording ? `${accent}55` : hovered ? 'var(--border-visible)' : 'var(--border)'}`,
         borderRadius: 16, overflow: 'hidden',
         display: 'flex', flexDirection: 'column',
@@ -109,49 +100,28 @@ function StreamerCard({
       {/* Content — above the blur */}
       <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', flex: 1 }}>
 
-        {/* Remove button */}
-        <button
-          onClick={e => { e.stopPropagation(); onRemove() }}
-          title="Remove streamer"
-          style={{
-            position: 'absolute', top: 10, right: 10, zIndex: 10,
-            width: 24, height: 24, borderRadius: 8,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: 'rgba(0,0,0,0.45)',
-            border: '1px solid rgba(255,255,255,0.1)',
-            color: 'var(--text-disabled)',
-            cursor: 'pointer',
-            transition: 'all 150ms',
-            padding: 0, fontSize: 16, lineHeight: 1,
-            backdropFilter: 'blur(4px)',
-          }}
-          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = 'var(--danger)'; (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--danger)' }}
-          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-disabled)'; (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(255,255,255,0.1)' }}
-        >
-          ×
-        </button>
-
         {/* Avatar + identity */}
-        <div style={{ padding: '28px 16px 18px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+        <div style={{ padding: '20px 16px 18px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
 
           {/* Recording banner */}
-          {isRecording && (
-            <div style={{
+          <div style={{
+              minHeight: 24,
               display: 'flex', alignItems: 'center', gap: 5,
               background: `${accent}20`, border: `1px solid ${accent}44`,
               borderRadius: 20, padding: '3px 10px',
               fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700,
               letterSpacing: '0.1em', color: accent, textTransform: 'uppercase',
-            }}>
-              <span className="live-dot" style={{ width: 5, height: 5, background: accent, boxShadow: `0 0 6px ${accent}`, flexShrink: 0 }} />
+              visibility: isRecording ? 'visible' : 'hidden',
+            }}
+          >
+              <span className="live-dot" style={{ width: 5, height: 5, background: accent, boxShadow: `0 0 6px ${accent}`, flexShrink: 0, opacity: isRecording ? 1 : 0 }} />
               Recording
-            </div>
-          )}
+          </div>
 
           {/* Squircle avatar */}
           <div style={{ position: 'relative' }}>
             <div className="sc-avatar-ring" style={{
-              width: 90, height: 90, borderRadius: '28%', padding: 3,
+              width: 92, height: 92, borderRadius: '28%', padding: 3,
               background: isRecording
                 ? `conic-gradient(${accent}, ${accent}66, ${accent})`
                 : `linear-gradient(135deg, ${accent}88, ${accent}22)`,
@@ -160,22 +130,13 @@ function StreamerCard({
               flexShrink: 0,
             }}>
               <div style={{
-                width: '100%', height: '100%', borderRadius: '25%',
+                width: '100%', height: '100%', borderRadius: '26%',
                 overflow: 'hidden', background: 'var(--surface-raised)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}>
                 <AvatarImg streamer={streamer} size={84} />
               </div>
             </div>
-            {isRecording && (
-              <span style={{
-                position: 'absolute', bottom: -5, right: -5,
-                background: accent, color: '#000',
-                fontFamily: 'var(--font-mono)', fontSize: 8, fontWeight: 900,
-                padding: '2px 6px', borderRadius: 6, letterSpacing: '0.08em',
-                border: '2px solid var(--surface)',
-              }}>REC</span>
-            )}
           </div>
 
           {/* Name + handle */}
@@ -184,15 +145,16 @@ function StreamerCard({
               fontFamily: 'var(--font-heading)', fontSize: 16, fontWeight: 800,
               color: isActive ? 'var(--text-display)' : 'var(--text-secondary)',
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-              lineHeight: 1.2, textShadow: streamer.avatar_url ? '0 1px 8px rgba(0,0,0,0.8)' : 'none',
+              lineHeight: 1.35, paddingBottom: 2,
+              textShadow: streamer.avatar_url ? '0 1px 8px rgba(0,0,0,0.8)' : 'none',
             }}>
-              {streamer.display_name}
+              {primaryName}
             </div>
             <div style={{
               fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-disabled)',
-              marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.35,
             }}>
-              @{streamer.username}
+              {secondaryHandle}
             </div>
           </div>
 
@@ -212,8 +174,8 @@ function StreamerCard({
         {/* Stats row */}
         <div style={{
           display: 'grid', gridTemplateColumns: '1fr 1px 1fr',
-          borderTop: '1px solid var(--border)',
-          background: 'rgba(0,0,0,0.3)',
+          borderTop: '1px solid rgba(255,255,255,0.08)',
+          background: 'rgba(0,0,0,0.12)',
         }}>
           <div style={{ padding: '10px 0', textAlign: 'center' }}>
             <div style={{ fontFamily: 'var(--font-heading)', fontSize: 18, fontWeight: 800, color: 'var(--text-display)', lineHeight: 1 }}>
@@ -223,7 +185,7 @@ function StreamerCard({
               Recordings
             </div>
           </div>
-          <div style={{ background: 'var(--border)' }} />
+          <div style={{ background: 'rgba(255,255,255,0.08)' }} />
           <div style={{ padding: '10px 0', textAlign: 'center' }}>
             <div style={{ fontFamily: 'var(--font-heading)', fontSize: 13, fontWeight: 700, color: streamer.last_live_at ? 'var(--text-primary)' : 'var(--text-disabled)', lineHeight: 1.2 }}>
               {streamer.last_live_at ? formatDate(streamer.last_live_at) : '—'}
@@ -238,16 +200,16 @@ function StreamerCard({
         <div
           onClick={() => onToggle(!isActive)}
           style={{
-            borderTop: '1px solid var(--border)',
+            borderTop: '1px solid rgba(255,255,255,0.08)',
             padding: '10px 16px',
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             cursor: 'pointer',
-            background: 'rgba(0,0,0,0.25)',
-            transition: 'background 150ms',
+            background: 'rgba(0,0,0,0.1)',
+            transition: 'background 150ms, border-color 150ms',
             userSelect: 'none',
           }}
-          onMouseEnter={e => ((e.currentTarget as HTMLDivElement).style.background = 'rgba(0,0,0,0.4)')}
-          onMouseLeave={e => ((e.currentTarget as HTMLDivElement).style.background = 'rgba(0,0,0,0.25)')}
+          onMouseEnter={e => ((e.currentTarget as HTMLDivElement).style.background = 'rgba(255,255,255,0.04)')}
+          onMouseLeave={e => ((e.currentTarget as HTMLDivElement).style.background = 'rgba(0,0,0,0.1)')}
         >
           <div>
             <div style={{ fontFamily: 'var(--font-ui)', fontSize: 13, fontWeight: 700, color: isActive ? 'var(--text-display)' : 'var(--text-secondary)' }}>
@@ -276,13 +238,14 @@ function StreamerCard({
 
         {/* Action buttons */}
         <div style={{
-          borderTop: '1px solid var(--border)',
+          borderTop: '1px solid rgba(255,255,255,0.08)',
           padding: '8px 12px',
-          background: 'rgba(0,0,0,0.35)',
+          background: 'rgba(0,0,0,0.18)',
           display: 'flex', alignItems: 'center', gap: 6,
+          marginTop: 'auto',
         }}>
           <CardBtn
-            icon={isChecking ? <span className="spinner" style={{ width: 12, height: 12 }} /> : <RefreshCw size={12} />}
+            icon={isChecking ? <span className="spinner" style={{ width: 12, height: 12 }} /> : <Icon name="refresh-line" size={16} />}
             label="Check"
             onClick={onCheckNow}
             disabled={isChecking}
@@ -294,22 +257,31 @@ function StreamerCard({
             title="Open channel in browser"
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              width: 28, height: 28, borderRadius: 8,
-              background: 'var(--surface-overlay)',
+              width: 30, height: 30, borderRadius: 9,
+              background: 'rgba(13,17,23,0.42)',
               border: '1px solid var(--border-visible)',
               color: 'var(--text-secondary)',
               cursor: 'pointer', transition: 'all 120ms', flexShrink: 0,
             }}
-            onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.color = 'var(--text-display)'; b.style.background = 'var(--surface-raised)' }}
-            onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.color = 'var(--text-secondary)'; b.style.background = 'var(--surface-overlay)' }}
+            onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.color = 'var(--text-display)'; b.style.background = 'rgba(22,27,34,0.56)' }}
+            onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.color = 'var(--text-secondary)'; b.style.background = 'rgba(13,17,23,0.42)' }}
           >
-            <ExternalLink size={12} />
+            <Icon name="external-link-line" size={16} />
           </button>
           <CardBtn
-            icon={<Video size={12} />}
+            icon={<Icon name="close-line" size={16} />}
+            label="X"
+            onClick={onRemove}
+            title="Remove streamer"
+            danger
+            iconOnly
+          />
+          <CardBtn
+            icon={<Icon name="play-circle-line" size={16} />}
             label="Recordings"
             onClick={() => navigate('/recordings')}
             title="View recordings"
+            iconOnly
           />
         </div>
       </div>
@@ -319,12 +291,16 @@ function StreamerCard({
 
 function CardBtn({
   icon, label, onClick, disabled, title,
+  danger,
+  iconOnly,
 }: {
   icon: React.ReactNode
   label: string
   onClick: () => void
   disabled?: boolean
   title?: string
+  danger?: boolean
+  iconOnly?: boolean
 }) {
   const [hov, setHov] = useState(false)
   return (
@@ -335,12 +311,14 @@ function CardBtn({
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
       style={{
-        display: 'flex', alignItems: 'center', gap: 4,
-        padding: '5px 9px', borderRadius: 7,
-        fontFamily: 'var(--font-ui)', fontSize: 11, fontWeight: 600,
-        color: hov ? 'var(--text-display)' : 'var(--text-secondary)',
-        background: hov ? 'var(--surface-raised)' : 'transparent',
-        border: `1px solid ${hov ? 'var(--border-visible)' : 'transparent'}`,
+        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: iconOnly ? 0 : 4,
+        padding: iconOnly ? '0' : '6px 10px', borderRadius: 8,
+        width: iconOnly ? 30 : 'auto',
+        height: iconOnly ? 30 : 'auto',
+        fontFamily: 'var(--font-ui)', fontSize: 11, fontWeight: 700,
+        color: danger ? (hov ? 'var(--danger)' : 'var(--text-secondary)') : hov ? 'var(--text-display)' : 'var(--text-secondary)',
+        background: danger ? (hov ? 'rgba(248,81,73,0.16)' : 'rgba(13,17,23,0.38)') : hov ? 'rgba(22,27,34,0.54)' : 'rgba(13,17,23,0.38)',
+        border: `1px solid ${danger ? (hov ? 'var(--danger)' : 'var(--border-visible)') : hov ? 'var(--accent)' : 'var(--border-visible)'}`,
         cursor: disabled ? 'not-allowed' : 'pointer',
         opacity: disabled ? 0.4 : 1,
         transition: 'all 120ms',
@@ -348,7 +326,7 @@ function CardBtn({
       }}
     >
       {icon}
-      {label}
+      {!iconOnly && label}
     </button>
   )
 }
@@ -366,16 +344,19 @@ export function Streamers() {
   const gridRef = useRef<HTMLDivElement>(null)
   const prevCount = useRef(0)
   const inputRef = useRef<HTMLInputElement>(null)
+  const staggerScopeRef = useRef<ReturnType<typeof createScope> | null>(null)
 
   useEffect(() => {
-    if (streamers.length === 0) { prevCount.current = 0; return }
-    if (!gridRef.current) return
+    staggerScopeRef.current?.revert()
+    staggerScopeRef.current = null
+    if (streamers.length === 0 || !gridRef.current) { prevCount.current = 0; return }
     if (streamers.length !== prevCount.current) {
       prevCount.current = streamers.length
       const scope = createScope({ root: gridRef.current })
       scope.add(() => staggerIn('.streamer-card-anim', { delay: 50, distance: 14 }))
-      return () => scope.revert()
+      staggerScopeRef.current = scope
     }
+    return () => { staggerScopeRef.current?.revert(); staggerScopeRef.current = null }
   }, [streamers.length])
 
   async function handleAdd() {
@@ -399,7 +380,17 @@ export function Streamers() {
 
   async function handleRefreshAll() {
     setRefreshing(true)
-    try { await load() } finally { setRefreshing(false) }
+    try {
+      const active = streamers.filter(s => s.is_active)
+      if (active.length === 0) {
+        await load()
+        return
+      }
+      await Promise.allSettled(active.map(s => checkNow(s.id)))
+      await load()
+    } finally {
+      setRefreshing(false)
+    }
   }
 
   async function handleRemove(id: number) {
@@ -407,10 +398,12 @@ export function Streamers() {
     await remove(id)
   }
 
-  const activeCount = streamers.filter(s => s.is_active === 1).length
-  const recordingCount = streamers.filter(s =>
-    recordings.filter(r => activeIds.has(r.id)).some(r => r.streamer_id === s.id)
-  ).length
+  const activeCount = streamers.filter(s => s.is_active).length
+  const activeStreamerIds = useMemo(
+    () => new Set(recordings.filter(r => activeIds.has(r.id)).map(r => r.streamer_id)),
+    [recordings, activeIds]
+  )
+  const recordingCount = streamers.filter(s => activeStreamerIds.has(s.id)).length
 
   return (
     <div className="page">
@@ -426,7 +419,7 @@ export function Streamers() {
           fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 700,
           letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-secondary)',
         }}>
-          <Link2 size={11} /> Add Streamer
+          <Icon name="link" size={16} /> Add Streamer
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
           <input
@@ -453,7 +446,7 @@ export function Streamers() {
             disabled={adding || !addUrl.trim()}
             style={{ borderRadius: 10, minWidth: 100 }}
           >
-            {adding ? <span className="spinner" style={{ width: 14, height: 14 }} /> : <Plus size={15} />}
+            {adding ? <span className="spinner" style={{ width: 14, height: 14 }} /> : <Icon name="add-line" size={16} />}
             {adding ? 'Adding…' : 'Add'}
           </button>
         </div>
@@ -499,8 +492,8 @@ export function Streamers() {
               disabled={refreshing}
               style={{ whiteSpace: 'nowrap' }}
             >
-              {refreshing ? <span className="spinner" style={{ width: 12, height: 12 }} /> : <RefreshCw size={12} />}
-              Refresh All
+              {refreshing ? <span className="spinner" style={{ width: 12, height: 12 }} /> : <Icon name="refresh-line" size={16} />}
+              Check All
             </button>
           </div>
         </div>
@@ -509,21 +502,22 @@ export function Streamers() {
       {/* ── Grid ── */}
       {streamers.length === 0 ? (
         <div className="empty-state">
-          <Radio size={44} className="empty-state-icon" />
+          <Icon name="radio-line" size={20} className="empty-state-icon" />
           <h3>No streamers yet</h3>
           <p>Paste a channel URL above to start monitoring and auto-recording streamers.</p>
         </div>
       ) : (
         <div ref={gridRef} style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
-          gap: 16,
+          gridTemplateColumns: 'repeat(auto-fill, minmax(var(--grid-card-min-streamers), 1fr))',
+          gap: 'clamp(10px, 1vw, 16px)',
+          alignItems: 'start',
         }}>
           {streamers.map(s => (
             <StreamerCard
               key={s.id}
               streamer={s}
-              isRecording={recordings.filter(r => activeIds.has(r.id)).some(r => r.streamer_id === s.id)}
+              isRecording={activeStreamerIds.has(s.id)}
               isChecking={checkingId === s.id}
               onCheckNow={() => handleCheckNow(s.id)}
               onToggle={(active) => setActive(s.id, active)}

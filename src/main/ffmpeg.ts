@@ -5,12 +5,20 @@ import { existsSync } from 'fs'
 import { store } from './ipc/settings'
 
 export function getBinPath(name: 'yt-dlp' | 'ffmpeg' | 'ffprobe'): string {
+  const sanitizeOverride = (v: string | undefined): string | undefined => {
+    if (!v) return undefined
+    const trimmed = v.trim()
+    if (!trimmed) return undefined
+    // Users sometimes paste quoted absolute paths on Windows.
+    return trimmed.replace(/^"(.*)"$/, '$1')
+  }
+
   // Check user-configured override paths first
   if (name === 'yt-dlp') {
-    const override = store.get('ytdlpPath') as string | undefined
+    const override = sanitizeOverride(store.get('ytdlpPath') as string | undefined)
     if (override && existsSync(override)) return override
   } else if (name === 'ffmpeg') {
-    const override = store.get('ffmpegPath') as string | undefined
+    const override = sanitizeOverride(store.get('ffmpegPath') as string | undefined)
     if (override && existsSync(override)) return override
   }
 

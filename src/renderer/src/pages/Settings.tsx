@@ -1,10 +1,7 @@
 import { useState, useEffect } from 'react'
-import * as Switch from '@radix-ui/react-switch'
-import * as Select from '@radix-ui/react-select'
-import {
-  HardDrive, Sliders, Radio, Bell, Info, FolderOpen,
-  ChevronDown, Check, ExternalLink, ChevronRight, Database, Save, CheckCheck,
-} from 'lucide-react'
+import { Switch } from '../components/ui/switch'
+import { Select } from '../components/ui/select'
+import { Icon } from '../components/Icon'
 import { useSettingsStore } from '../stores/settingsStore'
 import { formatBytes } from '../utils/format'
 
@@ -63,7 +60,7 @@ function RSelect({
         onBlur={e => { e.currentTarget.style.borderColor = 'var(--border-visible)'; e.currentTarget.style.boxShadow = 'none' }}
       >
         <Select.Value />
-        <Select.Icon style={{ marginLeft: 'auto' }}><ChevronDown size={13} /></Select.Icon>
+        <Select.Icon style={{ marginLeft: 'auto' }}><Icon name="arrow-down-s-line" size={16} /></Select.Icon>
       </Select.Trigger>
       <Select.Portal>
         <Select.Content
@@ -101,7 +98,7 @@ function ROption({ value, children }: { value: string; children: React.ReactNode
     >
       <Select.ItemText>{children}</Select.ItemText>
       <Select.ItemIndicator style={{ position: 'absolute', right: 8, color: 'var(--accent)' }}>
-        <Check size={12} />
+        <Icon name="check-line" size={16} />
       </Select.ItemIndicator>
     </Select.Item>
   )
@@ -183,13 +180,13 @@ function AdvancedSection({ children, hint }: { children: React.ReactNode; hint?:
         onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.background = 'var(--surface)')}
       >
         <span style={{ color: 'var(--text-secondary)', transition: 'transform 150ms', transform: open ? 'rotate(90deg)' : 'none', display: 'flex' }}>
-          <ChevronRight size={15} />
+          <Icon name="arrow-right-s-line" size={16} />
         </span>
         <span style={{ fontFamily: 'var(--font-heading)', fontSize: 14, fontWeight: 700, color: 'var(--text-display)' }}>
           Advanced
         </span>
         <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-disabled)', marginLeft: 'auto', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-          {hint ?? 'Twitch API, intervals'}
+          {hint ?? 'Intervals, binary paths, retries'}
         </span>
       </button>
       {open && children}
@@ -205,7 +202,10 @@ function NumInput({
     <input
       type="number" min={min} max={max}
       value={value}
-      onChange={e => onChange(Number(e.target.value))}
+      onChange={e => {
+        const next = Number(e.target.value)
+        if (Number.isFinite(next)) onChange(next)
+      }}
       style={{
         width, background: 'var(--surface)', border: '1px solid var(--border-visible)',
         color: 'var(--text-primary)', padding: '0 10px',
@@ -248,6 +248,7 @@ export function Settings() {
   const [draft, setDraft] = useState<Record<string, unknown>>({})
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle')
   const [diskSpace, setDiskSpace] = useState<{ free: number; total: number } | null>(null)
+  const [appVersion, setAppVersion] = useState<string | null>(null)
 
   const hasChanges = Object.keys(draft).length > 0
 
@@ -262,10 +263,12 @@ export function Settings() {
   async function handleSave() {
     setSaveState('saving')
     for (const [key, value] of Object.entries(draft)) {
+      if (key === 'pollingIntervalSecs') continue
       await s.set(key as never, value as never)
     }
     if ('pollingIntervalSecs' in draft) {
-      window.electronAPI.monitorSetInterval(draft.pollingIntervalSecs as number)
+      const secs = Math.max(10, Number(draft.pollingIntervalSecs) || 10)
+      window.electronAPI.monitorSetInterval(secs)
     }
     setDraft({})
     setSaveState('saved')
@@ -278,12 +281,18 @@ export function Settings() {
     }
   }, [s.storagePath])
 
+  useEffect(() => {
+    let alive = true
+    window.electronAPI.getAppVersion?.()
+      .then(v => { if (alive) setAppVersion(v) })
+      .catch(() => { if (alive) setAppVersion(null) })
+    return () => { alive = false }
+  }, [])
+
   async function handlePickFolder() {
     const path = await window.electronAPI.pickFolder()
     if (path) {
-      await s.set('storagePath', path)
-      const space = await window.electronAPI.getDiskSpace(path)
-      setDiskSpace(space)
+      update('storagePath', path)
     }
   }
 
@@ -304,10 +313,10 @@ export function Settings() {
           style={{ flexShrink: 0, marginTop: 4, minWidth: 120, transition: 'all 200ms' }}
         >
           {saveState === 'saved'
-            ? <><CheckCheck size={14} /> Saved!</>
+            ? <><Icon name="check-double-line" size={16} /> Saved!</>
             : saveState === 'saving'
             ? <><span className="spinner" style={{ width: 14, height: 14 }} /> Saving…</>
-            : <><Save size={14} /> Save Changes</>
+            : <><Icon name="save-3-line" size={16} /> Save Changes</>
           }
         </button>
       </div>
@@ -326,7 +335,7 @@ export function Settings() {
       )}
 
       {/* ── Storage ── */}
-      <Section icon={<HardDrive size={15} />} title="Storage">
+      <Section icon={<Icon name="hard-drive-2-line" size={16} />} title="Storage">
         <Row label="Recording Folder" desc={val<string>('storagePath') || 'Default: ~/Videos/StreamVault'}>
           {diskSpace && (
             <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-disabled)', fontWeight: 700 }}>
@@ -334,7 +343,7 @@ export function Settings() {
             </span>
           )}
           <button className="btn btn-ghost btn-sm" onClick={handlePickFolder}>
-            <FolderOpen size={13} /> Change
+            <Icon name="folder-open-line" size={16} /> Change
           </button>
         </Row>
         <Row
@@ -345,18 +354,6 @@ export function Settings() {
             <ROption value="mp4">MP4 — recommended, best compatibility</ROption>
             <ROption value="ts">TS — raw stream, crash-safe, no remux</ROption>
           </RSelect>
-        </Row>
-        <Row
-          label="Auto-delete recordings"
-          desc="Automatically remove recordings older than N days (0 = never)"
-          dirty={'autoDeleteAfterDays' in draft}
-        >
-          <NumInput
-            value={val<number>('autoDeleteAfterDays')}
-            onChange={v => update('autoDeleteAfterDays', Math.max(0, v))}
-            min={0} max={365} width={80}
-          />
-          <span style={{ fontFamily: 'var(--font-ui)', fontSize: 13, color: 'var(--text-secondary)', fontWeight: 500 }}>days</span>
         </Row>
         <Row
           label="File Naming Pattern"
@@ -373,7 +370,7 @@ export function Settings() {
       </Section>
 
       {/* ── Recording Quality ── */}
-      <Section icon={<Sliders size={15} />} title="Recording Quality">
+      <Section icon={<Icon name="equalizer-line" size={16} />} title="Recording Quality">
         <Row
           label="Default Quality"
           desc="Resolution cap — Twitch/Kick use named tiers, YouTube uses format selectors"
@@ -389,7 +386,7 @@ export function Settings() {
       </Section>
 
       {/* ── Monitoring ── */}
-      <Section icon={<Radio size={15} />} title="Monitoring">
+      <Section icon={<Icon name="radio-line" size={16} />} title="Monitoring">
         <Row
           label="Max Concurrent Recordings"
           desc="How many streams can be recorded simultaneously"
@@ -404,7 +401,7 @@ export function Settings() {
       </Section>
 
       {/* ── Notifications ── */}
-      <Section icon={<Bell size={15} />} title="Notifications">
+      <Section icon={<Icon name="notification-3-line" size={16} />} title="Notifications">
         <Row
           label="Stream went live"
           desc="Desktop notification when a monitored streamer goes live"
@@ -429,21 +426,21 @@ export function Settings() {
       </Section>
 
       {/* ── App Data ── */}
-      <Section icon={<Database size={15} />} title="App Data">
+      <Section icon={<Icon name="database-2-line" size={16} />} title="App Data">
         <Row label="Recordings Folder" desc={val<string>('storagePath') || 'Default: ~/Videos/StreamVault'}>
           <button className="btn btn-ghost btn-sm" onClick={() => window.electronAPI.openRecordingsFolder()}>
-            <FolderOpen size={13} /> Open
+            <Icon name="folder-open-line" size={16} /> Open
           </button>
         </Row>
         <Row label="Config & Database" desc="Settings file, streamvault.db, and cached avatars">
           <button className="btn btn-ghost btn-sm" onClick={() => window.electronAPI.openAppDataFolder()}>
-            <FolderOpen size={13} /> Open
+            <Icon name="folder-open-line" size={16} /> Open
           </button>
         </Row>
       </Section>
 
       {/* ── Advanced ── */}
-      <AdvancedSection hint="Twitch API, binary paths, retry policy">
+      <AdvancedSection hint="Polling, binary paths, retry policy">
         <div>
           <Row
             label="Polling Interval"
@@ -467,39 +464,6 @@ export function Settings() {
               onChange={v => update('maxRetries', Math.max(0, Math.min(10, v)))}
               min={0} max={10} width={80}
             />
-          </Row>
-          <Row
-            label="Twitch Client ID"
-            desc="Enables efficient batch Twitch monitoring via the Helix API"
-            dirty={'twitchClientId' in draft}
-          >
-            <TextInput
-              value={val<string>('twitchClientId')}
-              onChange={v => update('twitchClientId', v)}
-              placeholder="xxxxxxxxxxxxxxxxxxxxxx"
-              width={240}
-            />
-          </Row>
-          <Row
-            label="Twitch Client Secret"
-            desc="Required alongside Client ID — get both at dev.twitch.tv"
-            dirty={'twitchClientSecret' in draft}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <TextInput
-                value={val<string>('twitchClientSecret')}
-                onChange={v => update('twitchClientSecret', v)}
-                placeholder="••••••••••••••"
-                type="password"
-                width={240}
-              />
-              <button
-                className="btn btn-ghost btn-sm"
-                onClick={() => window.electronAPI.openExternal('https://dev.twitch.tv/console')}
-              >
-                <ExternalLink size={13} />
-              </button>
-            </div>
           </Row>
           <Row
             label="Custom yt-dlp Path"
@@ -529,16 +493,18 @@ export function Settings() {
       </AdvancedSection>
 
       {/* ── About ── */}
-      <Section icon={<Info size={15} />} title="About">
+      <Section icon={<Icon name="information-line" size={16} />} title="About">
         <Row label="StreamVault" desc="Automatic stream archiver for Twitch, Kick, YouTube & more">
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-disabled)', fontWeight: 700 }}>v1.0.0</span>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-disabled)', fontWeight: 700 }}>
+            v{appVersion ?? '—'}
+          </span>
         </Row>
         <Row label="Recording Engine" desc="yt-dlp + FFmpeg — stream archiving and media processing">
           <button
             className="btn btn-ghost btn-sm"
             onClick={() => window.electronAPI.openExternal('https://github.com/yt-dlp/yt-dlp/releases')}
           >
-            <ExternalLink size={13} /> Update yt-dlp
+            <Icon name="external-link-line" size={16} /> Update yt-dlp
           </button>
         </Row>
       </Section>
@@ -562,7 +528,7 @@ export function Settings() {
           >
             {saveState === 'saving'
               ? <><span className="spinner" style={{ width: 14, height: 14 }} /> Saving…</>
-              : <><Save size={14} /> Save Changes</>
+              : <><Icon name="save-3-line" size={16} /> Save Changes</>
             }
           </button>
         </div>

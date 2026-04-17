@@ -8,6 +8,8 @@ directories:
 
 files:
   - out/**/*
+  - package.json
+  - node_modules/**/*
 
 extraResources:
   - from: resources/bin/
@@ -16,18 +18,11 @@ extraResources:
       - "yt-dlp.exe"
       - "ffmpeg.exe"
       - "ffprobe.exe"
-publish:
-  provider: github
-  owner: your-github-username
-  repo: streamvault
-  private: false
-
 win:
   target:
     - target: nsis
       arch:
         - x64
-  icon: resources/icon.ico
 
 nsis:
   oneClick: false
@@ -39,4 +34,4 @@ nsis:
 asarUnpack:
   - node_modules/better-sqlite3/**/*
 
-npmRebuild: false
+npmRebuild: true
