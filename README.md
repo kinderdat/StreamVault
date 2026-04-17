@@ -9,16 +9,28 @@ Record, archive, and clip live streams from one desktop app.
 
 <br/>
 
-[![Electron](https://img.shields.io/badge/Electron-41-191919?style=for-the-badge&logo=electron&logoColor=47848F)](https://electronjs.org)
-[![React](https://img.shields.io/badge/React-19-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://react.dev)
-[![Vite](https://img.shields.io/badge/Vite-8-646CFF?style=for-the-badge&logo=vite&logoColor=FFD62E)](https://vite.dev)
-[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-v4-0F172A?style=for-the-badge&logo=tailwindcss&logoColor=38BDF8)](https://tailwindcss.com)
-[![SQLite](https://img.shields.io/badge/SQLite-Local_DB-003B57?style=for-the-badge&logo=sqlite&logoColor=white)](https://www.sqlite.org)
-[![License: MIT](https://img.shields.io/badge/License-MIT-22C55E?style=for-the-badge)](LICENSE)
+<!-- Core Runtime -->
+[![Electron](https://img.shields.io/badge/Electron-41.1.1-191919?style=for-the-badge&logo=electron&logoColor=47848F)](https://electronjs.org)
+[![React](https://img.shields.io/badge/React-19.2.5-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://react.dev)
+[![TypeScript](https://img.shields.io/badge/TypeScript-6.0.2-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
+[![Vite](https://img.shields.io/badge/Vite-8.0.7-646CFF?style=for-the-badge&logo=vite&logoColor=FFBD2E)](https://vite.dev)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind-4.2.2-0F172A?style=for-the-badge&logo=tailwindcss&logoColor=38BDF8)](https://tailwindcss.com)
+[![React Router](https://img.shields.io/badge/React_Router-7.14.1-CA4245?style=for-the-badge&logo=reactrouter&logoColor=white)](https://reactrouter.com)
+[![Zustand](https://img.shields.io/badge/Zustand-5.0.12-433E38?style=for-the-badge&logo=react&logoColor=white)](https://zustand-demo.pmnd.rs)
+[![TanStack Query](https://img.shields.io/badge/TanStack_Query-5.99.0-FF4154?style=for-the-badge&logo=reactquery&logoColor=white)](https://tanstack.com/query)
+[![Zod](https://img.shields.io/badge/Zod-4.3.6-3068B7?style=for-the-badge&logo=zod&logoColor=white)](https://zod.dev)
+[![SQLite](https://img.shields.io/badge/SQLite-12.9.0-003B57?style=for-the-badge&logo=sqlite&logoColor=white)](https://www.sqlite.org)
+[![Video.js](https://img.shields.io/badge/Video.js-8.23.7-FF0000?style=for-the-badge&logo=vlc&logoColor=white)](https://videojs.com)
+[![Phosphor Icons](https://img.shields.io/badge/Phosphor_Icons-2.1.10-8B5CF6?style=for-the-badge&logo=phosphoricons&logoColor=white)](https://phosphoricons.com)
+[![Anime.js](https://img.shields.io/badge/Anime.js-4.3.6-FF6B9D?style=for-the-badge&logo=javascript&logoColor=white)](https://animejs.com)
 
-[![Platform](https://img.shields.io/badge/Platform-Windows_%7C_macOS_%7C_Linux-6B7280?style=flat-square&logo=github)](https://github.com/kinderdat/StreamVault/releases)
-[![Stars](https://img.shields.io/github/stars/kinderdat/StreamVault?style=flat-square&color=FBBF24)](https://github.com/kinderdat/StreamVault/stargazers)
-[![Issues](https://img.shields.io/github/issues/kinderdat/StreamVault?style=flat-square&color=F87171)](https://github.com/kinderdat/StreamVault/issues)
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-22C55E?style=for-the-badge&logo=opensourceinitiative&logoColor=white)](LICENSE)
+
+<!-- Community -->
+[![Platform](https://img.shields.io/badge/Platform-Windows_%7C_macOS_%7C_Linux-6B7280?style=flat-square&logo=github&logoColor=white)](https://github.com/kinderdat/StreamVault/releases)
+[![Stars](https://img.shields.io/github/stars/kinderdat/StreamVault?style=flat-square&color=FBBF24&logo=starship&logoColor=FBBF24)](https://github.com/kinderdat/StreamVault/stargazers)
+[![Issues](https://img.shields.io/github/issues/kinderdat/StreamVault?style=flat-square&color=F87171&logo=gitbook&logoColor=F87171)](https://github.com/kinderdat/StreamVault/issues)
 
 </div>
 
