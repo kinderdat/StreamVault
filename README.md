@@ -9,11 +9,11 @@ Record, archive, and clip live streams from one desktop app.
 
 <br/>
 
-[![Electron](https://img.shields.io/badge/ELECTRON-41.1.1-191919?style=flat-square&logo=electron&logoColor=47848F&labelColor=2d2d2d)](https://electronjs.org)
-[![React](https://img.shields.io/badge/REACT-19.2.5-61DAFB?style=flat-square&logo=react&logoColor=61DAFB&labelColor=2d2d2d)](https://react.dev)
-[![TypeScript](https://img.shields.io/badge/TYPESCRIPT-6.0.2-3178C6?style=flat-square&logo=typescript&logoColor=white&labelColor=2d2d2d)](https://www.typescriptlang.org)
-[![SQLite](https://img.shields.io/badge/SQLITE-12.9.0-003B57?style=flat-square&logo=sqlite&logoColor=white&labelColor=2d2d2d)](https://www.sqlite.org)
-[![Video.js](https://img.shields.io/badge/VIDEO.JS-8.23.7-FF0000?style=flat-square&logo=vlc&logoColor=white&labelColor=2d2d2d)](https://videojs.com)
+[![Electron](https://img.shields.io/badge/ELECTRON-41.1.1-191919?style=for-the-badge&logo=electron&logoColor=47848F&labelColor=2d2d2d)](https://electronjs.org)
+[![React](https://img.shields.io/badge/REACT-19.2.5-61DAFB?style=for-the-badge&logo=react&logoColor=61DAFB&labelColor=2d2d2d)](https://react.dev)
+[![TypeScript](https://img.shields.io/badge/TYPESCRIPT-6.0.2-3178C6?style=for-the-badge&logo=typescript&logoColor=white&labelColor=2d2d2d)](https://www.typescriptlang.org)
+[![SQLite](https://img.shields.io/badge/SQLITE-12.9.0-003B57?style=for-the-badge&logo=sqlite&logoColor=white&labelColor=2d2d2d)](https://www.sqlite.org)
+[![Video.js](https://img.shields.io/badge/VIDEO.JS-8.23.7-FF0000?style=for-the-badge&logo=vlc&logoColor=white&labelColor=2d2d2d)](https://videojs.com)
 
 <br/>
 
