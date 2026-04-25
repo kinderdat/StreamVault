@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+
 import type { Clip } from '../types/domain'
 
 interface ClipsState {
@@ -16,7 +17,7 @@ export const useClipsStore = create<ClipsState>((set) => ({
   async load() {
     set({ loading: true })
     try {
-      const data = await window.electronAPI.clipsGetAll() as Clip[]
+      const data = (await window.electronAPI.clipsGetAll()) as Clip[]
       set({ clips: data })
     } finally {
       set({ loading: false })
@@ -25,11 +26,11 @@ export const useClipsStore = create<ClipsState>((set) => ({
 
   async remove(id) {
     await window.electronAPI.clipsDelete(id)
-    set(s => ({ clips: s.clips.filter(c => c.id !== id) }))
+    set((s) => ({ clips: s.clips.filter((c) => c.id !== id) }))
   },
 
   async update(id, data) {
     await window.electronAPI.clipsUpdate(id, data)
-    set(s => ({ clips: s.clips.map(c => c.id === id ? { ...c, ...data } : c) }))
+    set((s) => ({ clips: s.clips.map((c) => (c.id === id ? { ...c, ...data } : c)) }))
   },
 }))

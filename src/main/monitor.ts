@@ -1,10 +1,10 @@
 import { BrowserWindow, Notification } from 'electron'
-import { streamers, recordings } from './db'
-import { checkKick, checkViaYtdlp } from './platforms'
-import { startRecording, getActiveIds } from './recorder'
-import { store } from './ipc/settings'
 
-import { recentlyFinished, COOLDOWN_MS } from './state'
+import { recordings, streamers } from './db'
+import { store } from './ipc/settings'
+import { checkKick, checkViaYtdlp } from './platforms'
+import { getActiveIds, startRecording } from './recorder'
+import { COOLDOWN_MS, recentlyFinished } from './state'
 
 let intervalHandle: ReturnType<typeof setInterval> | null = null
 let mainWindow: BrowserWindow | null = null
@@ -46,7 +46,9 @@ export function getMonitorStatus(): { running: boolean; nextTickIn: number; acti
 }
 
 export async function checkStreamerNow(streamerId: number): Promise<void> {
-  const row = streamers.getById(streamerId) as { id: number; platform: string; channel_url: string; username: string; display_name: string } | undefined
+  const row = streamers.getById(streamerId) as
+    | { id: number; platform: string; channel_url: string; username: string; display_name: string }
+    | undefined
   if (!row) return
   await checkAndRecord(row)
 }
@@ -55,24 +57,24 @@ async function tick(): Promise<void> {
   if (tickInFlight) return
   tickInFlight = true
   try {
-  nextTickAt = Date.now() + ((store.get('pollingIntervalSecs') as number | undefined) ?? 10) * 1000
-  const activeStreamers = streamers.getActive() as Array<{
-    id: number
-    platform: string
-    channel_url: string
-    username: string
-    display_name: string
-  }>
-  if (!activeStreamers.length) return
+    nextTickAt = Date.now() + ((store.get('pollingIntervalSecs') as number | undefined) ?? 10) * 1000
+    const activeStreamers = streamers.getActive() as Array<{
+      id: number
+      platform: string
+      channel_url: string
+      username: string
+      display_name: string
+    }>
+    if (!activeStreamers.length) return
 
-  const maxConcurrent = (store.get('maxConcurrentRecordings') as number | undefined) ?? 3
+    const maxConcurrent = (store.get('maxConcurrentRecordings') as number | undefined) ?? 3
 
-  // Check active streamers in small batches to avoid hammering remote platforms.
-  const BATCH = 5
-  for (let i = 0; i < activeStreamers.length; i += BATCH) {
-    const batch = activeStreamers.slice(i, i + BATCH)
-    await Promise.allSettled(batch.map(s => checkAndRecord(s, maxConcurrent)))
-  }
+    // Check active streamers in small batches to avoid hammering remote platforms.
+    const BATCH = 5
+    for (let i = 0; i < activeStreamers.length; i += BATCH) {
+      const batch = activeStreamers.slice(i, i + BATCH)
+      await Promise.allSettled(batch.map((s) => checkAndRecord(s, maxConcurrent)))
+    }
   } finally {
     tickInFlight = false
   }

@@ -1,5 +1,6 @@
-import { net } from 'electron'
 import { spawn } from 'child_process'
+import { net } from 'electron'
+
 import { getBinPath } from './ffmpeg'
 
 export interface LiveInfo {
@@ -38,12 +39,12 @@ export function extractUsername(url: string, platform: string): string {
     const parts = u.pathname.split('/').filter(Boolean)
     switch (platform) {
       case 'youtube': {
-        const handle = parts.find(p => p.startsWith('@'))
+        const handle = parts.find((p) => p.startsWith('@'))
         return handle?.slice(1) ?? parts[0] ?? url
       }
       case 'tiktok': {
         // https://www.tiktok.com/@username/live → strip @
-        const handle = parts.find(p => p.startsWith('@'))
+        const handle = parts.find((p) => p.startsWith('@'))
         return handle?.slice(1) ?? parts[0] ?? url
       }
       case 'panda': {
@@ -75,7 +76,7 @@ export function extractUsername(url: string, platform: string): string {
 export async function checkKick(username: string): Promise<LiveInfo> {
   try {
     const data = await fetchJson(`https://kick.com/api/v2/channels/${username}/livestream`, {
-      headers: { 'User-Agent': UA, 'Accept': 'application/json' }
+      headers: { 'User-Agent': UA, Accept: 'application/json' },
     })
     if (!data?.data) return { isLive: false }
     const kickData = data.data as Record<string, unknown>
@@ -98,7 +99,7 @@ export async function checkKick(username: string): Promise<LiveInfo> {
 async function checkAfreecaTV(bjId: string): Promise<LiveInfo> {
   try {
     const data = await fetchJson(`https://bjapi.afreecatv.com/api/${bjId}/station`, {
-      headers: { 'User-Agent': UA, 'Accept': 'application/json' }
+      headers: { 'User-Agent': UA, Accept: 'application/json' },
     })
     const broad = data?.broad as Record<string, unknown> | null | undefined
     if (!broad) return { isLive: false }
@@ -121,7 +122,7 @@ async function checkPandaLive(channel: string): Promise<LiveInfo> {
   try {
     const data = await fetchJson(
       `https://api.pandalive.co.kr/v1/live/play?channel=${encodeURIComponent(channel)}&info=media&cacheType=undefined`,
-      { headers: { 'User-Agent': UA, 'Accept': 'application/json', 'Origin': 'https://www.pandalive.co.kr' } }
+      { headers: { 'User-Agent': UA, Accept: 'application/json', Origin: 'https://www.pandalive.co.kr' } },
     )
     const media = data?.media as Record<string, unknown> | undefined
     const userInfo = data?.userInfo as Record<string, unknown> | undefined
@@ -145,13 +146,13 @@ export async function findKickVodM3u8(channelUrl: string): Promise<string | null
 
   try {
     const data = await fetchJson(`https://kick.com/api/v1/channels/${username}/videos?sort=desc`, {
-      headers: { 'User-Agent': UA, 'Accept': 'application/json' }
+      headers: { 'User-Agent': UA, Accept: 'application/json' },
     })
     const videos = (data?.data as Array<Record<string, unknown>> | undefined) ?? []
     if (!videos.length) return null
 
     const video = videos[0] as Record<string, unknown> | undefined
-    const thumbnail = (video?.thumbnail as Record<string, unknown> | undefined)
+    const thumbnail = video?.thumbnail as Record<string, unknown> | undefined
     const thumbUrl = typeof thumbnail?.src === 'string' ? thumbnail.src : ''
     const startTime = typeof video?.start_time === 'string' ? video.start_time : ''
 
@@ -196,28 +197,53 @@ export function checkViaYtdlp(channelUrl: string): Promise<LiveInfo> {
       '--simulate',
       '--no-download',
       '--quiet',
-      '--print', '%(is_live)s|||%(title)s|||%(view_count)s|||%(thumbnail)s|||%(categories.0)s',
+      '--print',
+      '%(is_live)s|||%(title)s|||%(view_count)s|||%(thumbnail)s|||%(categories.0)s',
       channelUrl,
     ])
 
+    let settled = false
+    const finalize = (result: LiveInfo) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timeoutId)
+      resolve(result)
+    }
+
     let stdout = ''
-    proc.stdout.on('data', (d: Buffer) => { stdout += d.toString() })
+    proc.stdout.on('data', (d: Buffer) => {
+      stdout += d.toString()
+    })
     proc.on('close', (code) => {
-      if (code !== 0) { resolve({ isLive: false }); return }
-      const line = stdout.trim().split('\n').find(l => l.includes('True')) ?? stdout.trim()
+      if (code !== 0) {
+        finalize({ isLive: false })
+        return
+      }
+      const line =
+        stdout
+          .trim()
+          .split('\n')
+          .find((l) => l.includes('True')) ?? stdout.trim()
       const parts = line.split('|||')
       const isLive = parts[0]?.trim() === 'True'
       const rawCategory = parts[4]?.trim()
-      resolve({
+      finalize({
         isLive,
         title: parts[1]?.trim() || undefined,
         viewerCount: parts[2] ? parseInt(parts[2]) || undefined : undefined,
         thumbnailUrl: parts[3]?.trim() || undefined,
-        category: (rawCategory && rawCategory !== 'NA' && rawCategory !== 'None') ? rawCategory : undefined,
+        category: rawCategory && rawCategory !== 'NA' && rawCategory !== 'None' ? rawCategory : undefined,
       })
     })
-    proc.on('error', () => resolve({ isLive: false }))
-    setTimeout(() => { proc.kill(); resolve({ isLive: false }) }, 15000)
+    proc.on('error', () => finalize({ isLive: false }))
+    const timeoutId = setTimeout(() => {
+      try {
+        proc.kill()
+      } catch {
+        /* already exited */
+      }
+      finalize({ isLive: false })
+    }, 15000)
   })
 }
 
@@ -233,21 +259,31 @@ async function checkYouTubeLive(channelUrl: string, username: string): Promise<L
     try {
       const result = await checkViaYtdlp(url)
       if (result.isLive) return result
-    } catch { /* try next */ }
+    } catch {
+      /* try next */
+    }
   }
   return { isLive: false }
 }
 
 export async function checkLive(platform: string, channelUrl: string, username: string): Promise<LiveInfo> {
   switch (platform) {
-    case 'kick':    return checkKick(username)
-    case 'youtube': return checkYouTubeLive(channelUrl, username)
-    case 'tiktok':  return checkViaYtdlp(`https://www.tiktok.com/@${username}/live`)
-    case 'afreeca': return checkAfreecaTV(username)
-    case 'panda':   return checkPandaLive(username)
-    case 'rumble':  return checkViaYtdlp(channelUrl)
-    case 'flextv':  return checkViaYtdlp(channelUrl)
-    default:        return checkViaYtdlp(channelUrl)
+    case 'kick':
+      return checkKick(username)
+    case 'youtube':
+      return checkYouTubeLive(channelUrl, username)
+    case 'tiktok':
+      return checkViaYtdlp(`https://www.tiktok.com/@${username}/live`)
+    case 'afreeca':
+      return checkAfreecaTV(username)
+    case 'panda':
+      return checkPandaLive(username)
+    case 'rumble':
+      return checkViaYtdlp(channelUrl)
+    case 'flextv':
+      return checkViaYtdlp(channelUrl)
+    default:
+      return checkViaYtdlp(channelUrl)
   }
 }
 
@@ -261,7 +297,7 @@ export async function fetchAvatarUrl(platform: string, username: string): Promis
       }
       case 'kick': {
         const data = await fetchJson(`https://kick.com/api/v2/channels/${username}`, {
-          headers: { 'User-Agent': UA, 'Accept': 'application/json' }
+          headers: { 'User-Agent': UA, Accept: 'application/json' },
         })
         const pic = (data?.user as Record<string, unknown>)?.profile_pic
         return typeof pic === 'string' ? pic : null
@@ -273,7 +309,9 @@ export async function fetchAvatarUrl(platform: string, username: string): Promis
       case 'panda': {
         const data = await fetchJson(
           `https://api.pandalive.co.kr/v1/live/play?channel=${encodeURIComponent(username)}&info=media`,
-          { headers: { 'User-Agent': UA, 'Accept': 'application/json', 'Origin': 'https://www.pandalive.co.kr' } }
+          {
+            headers: { 'User-Agent': UA, Accept: 'application/json', Origin: 'https://www.pandalive.co.kr' },
+          },
         )
         const thumb = (data?.userInfo as Record<string, unknown>)?.profileImg
         return typeof thumb === 'string' ? thumb : null
@@ -307,7 +345,10 @@ export async function fetchAvatarUrl(platform: string, username: string): Promis
 }
 
 // ── HTTP helpers using Electron net ──────────────────────────────
-function fetchJson(url: string, opts: { method?: string; headers?: Record<string, string> } = {}): Promise<Record<string, unknown>> {
+function fetchJson(
+  url: string,
+  opts: { method?: string; headers?: Record<string, string> } = {},
+): Promise<Record<string, unknown>> {
   return new Promise((resolve, reject) => {
     const req = net.request({ method: opts.method ?? 'GET', url })
     if (opts.headers) {
@@ -317,10 +358,15 @@ function fetchJson(url: string, opts: { method?: string; headers?: Record<string
 
     let body = ''
     req.on('response', (res) => {
-      res.on('data', (chunk) => { body += chunk.toString() })
+      res.on('data', (chunk) => {
+        body += chunk.toString()
+      })
       res.on('end', () => {
-        try { resolve(JSON.parse(body)) }
-        catch { reject(new Error('JSON parse error')) }
+        try {
+          resolve(JSON.parse(body))
+        } catch {
+          reject(new Error('JSON parse error'))
+        }
       })
     })
     req.on('error', reject)
@@ -334,7 +380,9 @@ function fetchText(url: string): Promise<string> {
     req.setHeader('User-Agent', UA)
     let body = ''
     req.on('response', (res) => {
-      res.on('data', (chunk) => { body += chunk.toString() })
+      res.on('data', (chunk) => {
+        body += chunk.toString()
+      })
       res.on('end', () => resolve(body))
     })
     req.on('error', reject)

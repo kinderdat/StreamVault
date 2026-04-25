@@ -1,9 +1,10 @@
 import { ipcMain, shell } from 'electron'
-import path from 'path'
 import { existsSync } from 'fs'
+import path from 'path'
 import { z } from 'zod'
+
 import { recordings } from '../db'
-import { stopRecording, deleteRecordingFile } from '../recorder'
+import { deleteRecordingFile, stopRecording } from '../recorder'
 
 const recordingIdSchema = z.number().int().positive()
 
@@ -17,11 +18,11 @@ export function registerRecordingsIpc(): void {
   ipcMain.handle('recordings:getAll', () => recordings.getAll())
 
   ipcMain.handle('recordings:getByStreamer', (_event, streamerId: number) =>
-    recordings.getByStreamer(recordingIdSchema.parse(streamerId))
+    recordings.getByStreamer(recordingIdSchema.parse(streamerId)),
   )
 
   ipcMain.handle('recordings:getById', (_event, id: number) =>
-    recordings.getById(recordingIdSchema.parse(id))
+    recordings.getById(recordingIdSchema.parse(id)),
   )
 
   ipcMain.handle('recordings:getStats', () => recordings.getStats())

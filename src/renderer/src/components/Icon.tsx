@@ -1,46 +1,47 @@
 import React from 'react'
+
 import {
-  Play,
-  Pause,
-  PlayCircle,
-  Square,
-  UsersThree,
-  GearSix,
-  Television,
-  SquaresFour,
-  ListBullets,
-  FilmSlate,
-  Article,
-  FolderSimple,
-  Trash,
-  CaretDown,
-  Check,
+  AppWindow,
+  ArrowClockwise,
+  CaretDown as ArrowDownIcon,
   ArrowLeft,
   ArrowRight,
-  CaretDown as ArrowDownIcon,
+  ArrowSquareOut,
   ArrowsOutSimple,
+  Article,
+  Bell,
+  CaretDown,
+  Check,
+  Checks,
+  Database,
+  EjectSimple,
+  FilmSlate,
+  FloppyDisk,
+  FolderSimple,
+  GearSix,
+  HardDrive,
+  Info,
+  LinkSimple,
+  ListBullets,
+  MagnifyingGlass,
+  Minus,
+  Pause,
+  PictureInPicture,
+  Play,
+  PlayCircle,
+  Plus,
+  Radio,
+  Scissors,
+  Sliders,
   SpeakerHigh,
   SpeakerSlash,
-  MagnifyingGlass,
-  Scissors,
-  Radio,
-  HardDrive,
-  Sliders,
-  Bell,
-  Info,
-  Database,
-  LinkSimple,
-  Plus,
-  ArrowClockwise,
-  ArrowSquareOut,
-  X,
-  AppWindow,
-  Minus,
-  PictureInPicture,
-  Checks,
-  FloppyDisk,
+  Square,
+  SquaresFour,
   StopCircle,
-  EjectSimple,
+  Television,
+  Trash,
+  UsersThree,
+  X,
 } from '@phosphor-icons/react'
 
 interface IconProps {
@@ -99,14 +100,5 @@ const ICONS: Record<string, React.ComponentType<React.ComponentProps<typeof Play
 
 export function Icon({ name, size = 16, className = '', title, style }: IconProps) {
   const PhIcon = ICONS[name] ?? Play
-  return (
-    <PhIcon
-      size={size}
-      className={className}
-      weight="bold"
-      aria-label={title}
-      style={style}
-    />
-  )
+  return <PhIcon size={size} className={className} weight="bold" aria-label={title} style={style} />
 }
-

@@ -1,0 +1,248 @@
+/* ─── Streamer card blurred background ───────────────────────── */
+.sc-bg-blur {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-size: cover;
+  background-position: center;
+  filter: blur(28px) saturate(1.6) brightness(0.14);
+  transform: scale(1.15);
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+/* ─── Streamers page ──────────────────────────────────────────── */
+.streamers-add-bar {
+  background: var(--surface);
+  border: 1px solid var(--border-visible);
+  border-radius: var(--radius-sm);
+  padding: var(--sp-5) var(--sp-6);
+  margin-bottom: var(--sp-6);
+}
+.streamers-add-label {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  margin-bottom: var(--sp-3);
+}
+.streamers-add-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+.streamers-add-input {
+  flex: 1;
+  background: var(--black);
+  border: 1px solid var(--border-visible);
+  border-radius: var(--radius-xs);
+  padding: 10px var(--sp-3);
+  color: var(--text-display);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  font-weight: 500;
+  outline: none;
+  transition:
+    border-color 150ms var(--ease),
+    box-shadow 150ms var(--ease);
+}
+.streamers-add-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-subtle);
+}
+.streamers-add-input::placeholder {
+  color: var(--text-disabled);
+}
+.streamers-add-error {
+  margin-top: var(--sp-2);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--danger);
+}
+.streamers-list {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.streamers-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: var(--sp-2) var(--sp-3);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.streamers-list-count {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-disabled);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* ─── Streamer cards (Streamers page grid) ────────────────────── */
+.streamer-card-anim {
+  transition:
+    transform 150ms var(--ease-spring),
+    box-shadow 150ms var(--ease);
+}
+.streamer-card-anim:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.streamer-card {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at top, color-mix(in srgb, var(--accent) 10%, transparent), transparent 38%),
+    color-mix(in srgb, var(--surface) 55%, var(--black));
+  border: 1px solid transparent; /* idle: no grey outline */
+  transition:
+    border-color 200ms var(--ease),
+    background 200ms var(--ease),
+    box-shadow 200ms var(--ease);
+}
+.streamer-card.is-hovered {
+  border-color: color-mix(in srgb, var(--border-visible) 70%, transparent);
+}
+.streamer-card.is-recording {
+  border-color: color-mix(in srgb, var(--card-accent) 55%, transparent);
+  background:
+    radial-gradient(circle at top, color-mix(in srgb, var(--card-accent) 16%, transparent), transparent 42%),
+    color-mix(in srgb, var(--surface) 62%, var(--black));
+}
+
+.streamer-card-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.sc-recording-pill {
+  min-height: 24px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border-radius: 20px;
+  padding: 3px 10px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--card-accent);
+  background: color-mix(in srgb, var(--card-accent) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--card-accent) 30%, transparent);
+  visibility: hidden;
+}
+.sc-recording-pill.is-visible {
+  visibility: visible;
+}
+.sc-recording-pill .live-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--card-accent);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--card-accent) 90%, transparent);
+  flex-shrink: 0;
+}
+
+.sc-avatar-ring {
+  width: 92px;
+  height: 92px;
+  border-radius: 28%;
+  padding: 3px;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--card-accent) 70%, transparent),
+    color-mix(in srgb, var(--card-accent) 18%, transparent)
+  );
+  transition: box-shadow 400ms;
+  flex-shrink: 0;
+}
+.streamer-card.is-recording .sc-avatar-ring {
+  background: conic-gradient(
+    var(--card-accent),
+    color-mix(in srgb, var(--card-accent) 55%, transparent),
+    var(--card-accent)
+  );
+  box-shadow: 0 0 28px color-mix(in srgb, var(--card-accent) 28%, transparent);
+}
+.sc-avatar-inner {
+  width: 100%;
+  height: 100%;
+  border-radius: 26%;
+  overflow: hidden;
+  background: var(--surface-raised);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sc-names {
+  text-align: center;
+  width: 100%;
+}
+.sc-name {
+  font-family: var(--font-heading);
+  font-size: 16px;
+  font-weight: 900;
+  color: var(--text-display);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.35;
+  padding-bottom: 2px;
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.85);
+}
+.sc-name.is-paused {
+  color: var(--text-secondary);
+}
+.sc-handle {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-disabled);
+  margin-top: 3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.35;
+}
+.sc-badges {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.sc-paused-chip {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--text-disabled);
+  border: 1px solid color-mix(in srgb, var(--border-visible) 70%, transparent);
+  border-radius: 7px;
+  padding: 2px 6px;
+  background: color-mix(in srgb, var(--surface-overlay) 34%, transparent);
+}
+
+.sc-stats {
+  display: grid;
+  grid-template-columns: 1fr 1px 1fr;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.12);
+}

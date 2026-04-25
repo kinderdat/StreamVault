@@ -6,7 +6,7 @@ import { animate, stagger } from 'animejs'
  */
 export function staggerIn(
   targets: string | Element | Element[] | NodeListOf<Element>,
-  opts?: { delay?: number; distance?: number; duration?: number }
+  opts?: { delay?: number; distance?: number; duration?: number },
 ) {
   return animate(targets as Parameters<typeof animate>[0], {
     opacity: [0, 1],
@@ -103,6 +103,25 @@ export function fadeSlideIn(el: Element, fromX = -20) {
     opacity: [0, 1],
     translateX: [fromX, 0],
     duration: 280,
+    ease: 'outExpo',
+  })
+}
+
+/** Intro for the main “stage” panel (Caelestia-style shell). Opacity-only so we never leave `transform` on the stage (transform breaks descendant layout / fixed overlays). */
+export function shellStageReveal(el: HTMLElement) {
+  return animate(el, {
+    opacity: [0.9, 1],
+    duration: 380,
+    ease: 'outExpo',
+  })
+}
+
+/** Subtle route content refresh — keep duration short to avoid jank. */
+export function routeContentEnter(el: HTMLElement) {
+  return animate(el, {
+    opacity: [0.82, 1],
+    translateY: [6, 0],
+    duration: 220,
     ease: 'outExpo',
   })
 }

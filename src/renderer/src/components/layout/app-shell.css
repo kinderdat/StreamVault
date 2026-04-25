@@ -1,0 +1,120 @@
+.app-shell {
+  --frame-thickness: 20px;
+  --chrome-bar-height: var(--frame-thickness);
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  max-height: 100vh;
+  overflow: hidden;
+}
+
+.app-shell-maincol {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+}
+
+.viewport-logo {
+  position: absolute;
+  left: calc(8px + 22px);
+  top: 0;
+  width: 40px;
+  height: 40px;
+  transform: translate(-50%, 0);
+  z-index: calc(var(--z-titlebar) + 1);
+  pointer-events: none;
+}
+
+.app-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  gap: 6px;
+  padding: 0 var(--frame-thickness) 0 8px;
+  box-sizing: border-box;
+}
+
+.window-controls-dock {
+  position: absolute;
+  left: calc(8px + 22px);
+  bottom: calc(35px + ((var(--chrome-bar-height, 30px) - 34px) / 2));
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  z-index: calc(var(--z-telemetry) + 1);
+  pointer-events: auto;
+}
+
+.app-stage {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+  z-index: var(--z-stage);
+  border-radius: var(--shell-outer-radius);
+  border: 3px solid color-mix(in srgb, var(--border-visible) 100%, transparent);
+  background: color-mix(in srgb, var(--surface) 35%, var(--black));
+  box-shadow: none;
+}
+
+.app-main {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--black);
+  border-radius: max(20px, calc(var(--shell-outer-radius) - 4px));
+}
+
+.app-outlet-surface {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
+.app-outlet-surface > .page {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-bottom: 18px;
+  overscroll-behavior: contain;
+}
+
+.player-page.page {
+  padding: 0;
+}
+
+.player-full-slot {
+  flex: 1;
+  min-height: 0;
+  background: #000;
+  position: relative;
+}
+
+.status-banner {
+  padding: 9px var(--sp-6);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: blur(8px);
+}

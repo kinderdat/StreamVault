@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+
 import type { PlayerSource } from '../types/domain'
 
 interface PlayerState {
@@ -7,10 +8,10 @@ interface PlayerState {
   isPlaying: boolean
   currentTime: number
   duration: number
-  volume: number              // persisted
-  speed: number               // persisted
+  volume: number // persisted
+  speed: number // persisted
   pipActive: boolean
-  pipPosition: { x: number; y: number }  // persisted
+  pipPosition: { x: number; y: number } // persisted
   pipWidth: number
   pipHeight: number
   // Actions

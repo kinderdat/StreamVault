@@ -1,10 +1,11 @@
 import { spawn } from 'child_process'
 import { createHash } from 'crypto'
+import { app } from 'electron'
 import { existsSync, mkdirSync, readdirSync, statSync } from 'fs'
 import { unlink } from 'fs/promises'
-import { extname, join, normalize } from 'path'
 import { pathToFileURL } from 'node:url'
-import { app } from 'electron'
+import { extname, join, normalize } from 'path'
+
 import { getBinPath } from './ffmpeg'
 
 /** In-flight .ts → MP4 remux (dedupe concurrent requests). */
@@ -44,7 +45,11 @@ function runFfmpeg(args: string[], timeoutMs: number): Promise<boolean> {
 
     const proc = spawn(ffmpegBin, args, { stdio: 'ignore' })
     const timer = setTimeout(() => {
-      try { proc.kill() } catch { /* ignore */ }
+      try {
+        proc.kill()
+      } catch {
+        /* ignore */
+      }
       resolve(false)
     }, timeoutMs)
     timer.unref()
@@ -63,45 +68,79 @@ function runFfmpeg(args: string[], timeoutMs: number): Promise<boolean> {
 /** Remux or transcode MPEG-TS to a temp MP4 Chromium can decode on Windows. */
 export async function ensurePlayableMp4(tsPath: string): Promise<string | null> {
   let mtimeMs = 0
-  try { mtimeMs = statSync(tsPath).mtimeMs } catch { /* ignore */ }
-  const hash = createHash('md5').update(tsPath + String(mtimeMs)).digest('hex').slice(0, 16)
+  try {
+    mtimeMs = statSync(tsPath).mtimeMs
+  } catch {
+    /* ignore */
+  }
+  const hash = createHash('md5')
+    .update(tsPath + String(mtimeMs))
+    .digest('hex')
+    .slice(0, 16)
   const tempMp4 = join(getPlaybackCacheDir(), `sv_play_${hash}.mp4`)
 
   if (existsSync(tempMp4)) return tempMp4
   if (pendingTs.has(tsPath)) return pendingTs.get(tsPath)!
 
-  const promise = new Promise<string | null>(async (resolve) => {
-    const remuxOk = await runFfmpeg([
-      '-fflags', '+genpts',
-      '-i', tsPath,
-      '-c', 'copy',
-      '-f', 'mp4',
-      '-movflags', '+faststart+frag_keyframe+empty_moov',
-      '-avoid_negative_ts', '1',
-      '-y', tempMp4,
-    ], 90_000)
+  const promise = new Promise<string | null>((resolve) => {
+    ;(async () => {
+      const remuxOk = await runFfmpeg(
+        [
+          '-fflags',
+          '+genpts',
+          '-i',
+          tsPath,
+          '-c',
+          'copy',
+          '-f',
+          'mp4',
+          '-movflags',
+          '+faststart+frag_keyframe+empty_moov',
+          '-avoid_negative_ts',
+          '1',
+          '-y',
+          tempMp4,
+        ],
+        90_000,
+      )
 
-    if (remuxOk && existsSync(tempMp4)) {
+      if (remuxOk && existsSync(tempMp4)) {
+        pendingTs.delete(tsPath)
+        resolve(tempMp4)
+        return
+      }
+
+      await unlink(tempMp4).catch(() => {})
+      const transcodeOk = await runFfmpeg(
+        [
+          '-fflags',
+          '+genpts',
+          '-i',
+          tsPath,
+          '-c:v',
+          'libx264',
+          '-preset',
+          'veryfast',
+          '-crf',
+          '23',
+          '-c:a',
+          'aac',
+          '-movflags',
+          '+faststart',
+          '-pix_fmt',
+          'yuv420p',
+          '-y',
+          tempMp4,
+        ],
+        180_000,
+      )
+
       pendingTs.delete(tsPath)
-      resolve(tempMp4)
-      return
-    }
-
-    await unlink(tempMp4).catch(() => {})
-    const transcodeOk = await runFfmpeg([
-      '-fflags', '+genpts',
-      '-i', tsPath,
-      '-c:v', 'libx264',
-      '-preset', 'veryfast',
-      '-crf', '23',
-      '-c:a', 'aac',
-      '-movflags', '+faststart',
-      '-pix_fmt', 'yuv420p',
-      '-y', tempMp4,
-    ], 180_000)
-
-    pendingTs.delete(tsPath)
-    resolve(transcodeOk && existsSync(tempMp4) ? tempMp4 : null)
+      resolve(transcodeOk && existsSync(tempMp4) ? tempMp4 : null)
+    })().catch(() => {
+      pendingTs.delete(tsPath)
+      resolve(null)
+    })
   })
   pendingTs.set(tsPath, promise)
   return promise
@@ -113,7 +152,11 @@ export function mediaRequestToFilePath(requestUrl: string): string | null {
     const u = new URL(requestUrl)
     const isWin = process.platform === 'win32'
     const safeDecode = (s: string): string => {
-      try { return decodeURIComponent(s) } catch { return s }
+      try {
+        return decodeURIComponent(s)
+      } catch {
+        return s
+      }
     }
 
     const pathname = safeDecode(u.pathname || '')

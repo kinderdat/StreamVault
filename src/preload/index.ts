@@ -24,7 +24,8 @@ const electronAPI = {
   /** Sync file:// URL for thumbnails and static assets (no .ts remux). */
   toFileUrl: (filePath: string): string => pathToFileURL(path.normalize(assertFilePath(filePath))).href,
   /** Async: remux .ts → temp MP4 when needed, then return file:// href for <video>. */
-  preparePlayback: (filePath: string): Promise<string> => ipcRenderer.invoke('media:preparePlayback', assertFilePath(filePath)),
+  preparePlayback: (filePath: string): Promise<string> =>
+    ipcRenderer.invoke('media:preparePlayback', assertFilePath(filePath)),
 
   // Window
   minimize: (): Promise<void> => ipcRenderer.invoke('window:minimize'),
@@ -54,19 +55,27 @@ const electronAPI = {
   streamersRemove: (id: number): Promise<void> => ipcRenderer.invoke('streamers:remove', assertNumberId(id)),
   streamersSetActive: (id: number, active: boolean): Promise<void> =>
     ipcRenderer.invoke('streamers:setActive', assertNumberId(id), active),
-  streamersCheckNow: (id: number): Promise<void> => ipcRenderer.invoke('streamers:checkNow', assertNumberId(id)),
+  streamersCheckNow: (id: number): Promise<void> =>
+    ipcRenderer.invoke('streamers:checkNow', assertNumberId(id)),
   streamersRefreshAvatars: (): Promise<unknown[]> => ipcRenderer.invoke('streamers:refreshAvatars'),
 
   // Recordings
   recordingsGetAll: (): Promise<unknown[]> => ipcRenderer.invoke('recordings:getAll'),
   recordingsGetByStreamer: (streamerId: number): Promise<unknown[]> =>
     ipcRenderer.invoke('recordings:getByStreamer', assertNumberId(streamerId)),
-  recordingsGetById: (id: number): Promise<unknown> => ipcRenderer.invoke('recordings:getById', assertNumberId(id)),
-  recordingsGetStats: (): Promise<{ total: number; active: number; failed: number; total_duration: number; last_24h: number }> =>
-    ipcRenderer.invoke('recordings:getStats'),
+  recordingsGetById: (id: number): Promise<unknown> =>
+    ipcRenderer.invoke('recordings:getById', assertNumberId(id)),
+  recordingsGetStats: (): Promise<{
+    total: number
+    active: number
+    failed: number
+    total_duration: number
+    last_24h: number
+  }> => ipcRenderer.invoke('recordings:getStats'),
   recordingsClearFailed: (): Promise<void> => ipcRenderer.invoke('recordings:clearFailed'),
   recordingsStop: (id: number): Promise<void> => ipcRenderer.invoke('recordings:stop', assertNumberId(id)),
-  recordingsDelete: (id: number): Promise<void> => ipcRenderer.invoke('recordings:delete', assertNumberId(id)),
+  recordingsDelete: (id: number): Promise<void> =>
+    ipcRenderer.invoke('recordings:delete', assertNumberId(id)),
   recordingsOpenFolder: (filePath: string): Promise<void> =>
     ipcRenderer.invoke('recordings:openFolder', assertFilePath(filePath)),
   recordingsOpenFile: (filePath: string): Promise<void> =>
@@ -75,26 +84,37 @@ const electronAPI = {
   // Monitor
   monitorGetStatus: (): Promise<{ running: boolean; nextTickIn: number; activeRecordingIds: number[] }> =>
     ipcRenderer.invoke('monitor:getStatus'),
-  monitorSetInterval: (secs: number): Promise<void> =>
-    ipcRenderer.invoke('monitor:setInterval', secs),
+  monitorSetInterval: (secs: number): Promise<void> => ipcRenderer.invoke('monitor:setInterval', secs),
   monitorPause: (): Promise<void> => ipcRenderer.invoke('monitor:pause'),
   monitorResume: (): Promise<void> => ipcRenderer.invoke('monitor:resume'),
 
   // Clips (Phase 2 — main-side registered in Phase 2)
   clipsGetAll: (): Promise<unknown[]> => ipcRenderer.invoke('clips:getAll'),
-  clipsGetByRecording: (id: number): Promise<unknown[]> => ipcRenderer.invoke('clips:getByRecording', assertNumberId(id)),
+  clipsGetByRecording: (id: number): Promise<unknown[]> =>
+    ipcRenderer.invoke('clips:getByRecording', assertNumberId(id)),
   clipsGetById: (id: number): Promise<unknown> => ipcRenderer.invoke('clips:getById', assertNumberId(id)),
   clipsCreate: (data: object): Promise<unknown> => ipcRenderer.invoke('clips:create', data),
-  clipsUpdate: (id: number, data: object): Promise<void> => ipcRenderer.invoke('clips:update', assertNumberId(id), data),
+  clipsUpdate: (id: number, data: object): Promise<void> =>
+    ipcRenderer.invoke('clips:update', assertNumberId(id), data),
   clipsDelete: (id: number): Promise<void> => ipcRenderer.invoke('clips:delete', assertNumberId(id)),
-  clipsOpenFolder: (filePath: string): Promise<void> => ipcRenderer.invoke('clips:openFolder', assertFilePath(filePath)),
+  clipsOpenFolder: (filePath: string): Promise<void> =>
+    ipcRenderer.invoke('clips:openFolder', assertFilePath(filePath)),
 
   // Shell
   openExternal: (url: string): Promise<void> => ipcRenderer.invoke('shell:openExternal', assertHttpUrl(url)),
 
+  // Updates
+  checkForUpdates: (): Promise<{ current: string; latest: string; updateAvailable: boolean; url: string }> =>
+    ipcRenderer.invoke('updates:check'),
+
   // Push events from main process
-  onRecordingProgress: (cb: (data: { recordingId: number; percent?: number; fragments?: number }) => void): Unsubscribe => {
-    const h = (_: Electron.IpcRendererEvent, d: { recordingId: number; percent?: number; fragments?: number }) => cb(d)
+  onRecordingProgress: (
+    cb: (data: { recordingId: number; percent?: number; fragments?: number }) => void,
+  ): Unsubscribe => {
+    const h = (
+      _: Electron.IpcRendererEvent,
+      d: { recordingId: number; percent?: number; fragments?: number },
+    ) => cb(d)
     ipcRenderer.on('recording:progress', h)
     return () => ipcRenderer.off('recording:progress', h)
   },
@@ -118,8 +138,11 @@ const electronAPI = {
     ipcRenderer.on('recording:snapshot', h)
     return () => ipcRenderer.off('recording:snapshot', h)
   },
-  onRecordingMetaUpdate: (cb: (data: { recordingId: number; meta: Record<string, unknown> }) => void): Unsubscribe => {
-    const h = (_: Electron.IpcRendererEvent, d: { recordingId: number; meta: Record<string, unknown> }) => cb(d)
+  onRecordingMetaUpdate: (
+    cb: (data: { recordingId: number; meta: Record<string, unknown> }) => void,
+  ): Unsubscribe => {
+    const h = (_: Electron.IpcRendererEvent, d: { recordingId: number; meta: Record<string, unknown> }) =>
+      cb(d)
     ipcRenderer.on('recording:metaUpdate', h)
     return () => ipcRenderer.off('recording:metaUpdate', h)
   },

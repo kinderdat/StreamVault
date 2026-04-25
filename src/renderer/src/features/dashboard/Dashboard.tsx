@@ -1,18 +1,21 @@
 import { useEffect, useRef, useState } from 'react'
+
+import { Icon } from '@renderer/components/Icon'
+import { PlatformBadge } from '@renderer/components/PlatformBadge'
+import { useDiskSpace } from '@renderer/hooks/useDiskSpace'
+import { useRecordingsStore } from '@renderer/stores/recordingsStore'
+import { useSettingsStore } from '@renderer/stores/settingsStore'
+import { useStreamersStore } from '@renderer/stores/streamersStore'
+import { countUp, fadeSlideIn, staggerIn } from '@renderer/utils/anime'
+import { fileUrl, formatBytes, formatElapsed } from '@renderer/utils/format'
 import { createScope } from 'animejs'
-import { useStreamersStore } from '../stores/streamersStore'
-import { useRecordingsStore } from '../stores/recordingsStore'
-import { useSettingsStore } from '../stores/settingsStore'
-import { PlatformBadge } from '../components/PlatformBadge'
-import { formatElapsed, formatBytes, fileUrl } from '../utils/format'
-import { staggerIn, countUp, fadeSlideIn } from '../utils/anime'
-import { useDiskSpace } from '../hooks/useDiskSpace'
-import { Icon } from '../components/Icon'
+
+import './dashboard.css'
 
 export function Dashboard() {
   const { streamers } = useStreamersStore()
   const { recordings, activeIds, stop: stopRecording, load: reloadRecordings } = useRecordingsStore()
-  const storagePath = useSettingsStore(s => s.settings.storagePath as string | undefined)
+  const storagePath = useSettingsStore((s) => s.settings.storagePath as string | undefined)
   const [stats, setStats] = useState({ total: 0, active: 0, failed: 0, total_duration: 0, last_24h: 0 })
   const { data: disk } = useDiskSpace(storagePath)
   const [elapsed, setElapsed] = useState<Record<number, string>>({})
@@ -78,7 +81,7 @@ export function Dashboard() {
     refreshStats()
   }
 
-  const activeRecordings = recordings.filter(r => activeIds.has(r.id))
+  const activeRecordings = recordings.filter((r) => activeIds.has(r.id))
   const totalWatchHours = Math.floor(stats.total_duration / 3600)
 
   // Disk bar
@@ -88,7 +91,6 @@ export function Dashboard() {
 
   return (
     <div className="page">
-
       {/* ── Stats ───────────────────────────────── */}
       <div className="stats-grid" ref={statsGridRef}>
         <StatCard value={stats.total} label="Total Recordings" />
@@ -104,35 +106,57 @@ export function Dashboard() {
       </div>
 
       {/* ── 24h Activity + Disk ──────────────────── */}
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 24,
-        marginBottom: 20, flexWrap: 'wrap',
-      }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 24,
+          marginBottom: 20,
+          flexWrap: 'wrap',
+        }}
+      >
         <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-disabled)' }}>
-          <span style={{ color: 'var(--text-primary)', fontWeight: 700 }}>{stats.last_24h}</span> stream{stats.last_24h !== 1 ? 's' : ''} recorded in the last 24h
+          <span style={{ color: 'var(--text-primary)', fontWeight: 700 }}>{stats.last_24h}</span> stream
+          {stats.last_24h !== 1 ? 's' : ''} recorded in the last 24h
           {' · '}
-          <span style={{ color: activeIds.size > 0 ? 'var(--accent)' : 'var(--text-primary)', fontWeight: 700 }}>
+          <span
+            style={{ color: activeIds.size > 0 ? 'var(--accent)' : 'var(--text-primary)', fontWeight: 700 }}
+          >
             {activeIds.size}
-          </span> active now
+          </span>{' '}
+          active now
         </span>
 
         {disk && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto' }}>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-disabled)', whiteSpace: 'nowrap' }}>
+            <span
+              style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: 11,
+                color: 'var(--text-disabled)',
+                whiteSpace: 'nowrap',
+              }}
+            >
               {formatBytes(diskUsed)} / {formatBytes(disk.total)}
             </span>
-            <div style={{
-              width: 120, height: 5, borderRadius: 3,
-              background: 'var(--surface-raised)',
-              overflow: 'hidden',
-            }}>
-              <div style={{
-                width: `${Math.min(diskPct, 100)}%`,
-                height: '100%',
-                background: diskColor,
+            <div
+              style={{
+                width: 120,
+                height: 5,
                 borderRadius: 3,
-                transition: 'width 600ms ease, background 300ms',
-              }} />
+                background: 'var(--surface-raised)',
+                overflow: 'hidden',
+              }}
+            >
+              <div
+                style={{
+                  width: `${Math.min(diskPct, 100)}%`,
+                  height: '100%',
+                  background: diskColor,
+                  borderRadius: 3,
+                  transition: 'width 600ms ease, background 300ms',
+                }}
+              />
             </div>
             <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: diskColor, fontWeight: 700 }}>
               {Math.round(diskPct)}%
@@ -152,21 +176,36 @@ export function Dashboard() {
             <span className="db-section-count">{activeRecordings.length} active</span>
           </div>
           <div className="db-rec-list" ref={recListRef}>
-            {activeRecordings.map(rec => {
+            {activeRecordings.map((rec) => {
               const thumb = fileUrl(rec.thumbnail_path)
               return (
                 <div className="db-rec-row" key={rec.id}>
-                  <div style={{
-                    width: 80, height: 45, flexShrink: 0,
-                    background: 'var(--surface-raised)',
-                    overflow: 'hidden', borderRadius: 4, position: 'relative',
-                  }}>
-                    {thumb
-                      ? <img src={thumb} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <span className="live-dot" />
-                        </div>
-                    }
+                  <div
+                    style={{
+                      width: 80,
+                      height: 45,
+                      flexShrink: 0,
+                      background: 'var(--surface-raised)',
+                      overflow: 'hidden',
+                      borderRadius: 4,
+                      position: 'relative',
+                    }}
+                  >
+                    {thumb ? (
+                      <img src={thumb} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ) : (
+                      <div
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <span className="live-dot" />
+                      </div>
+                    )}
                   </div>
                   <PlatformBadge platform={rec.platform} />
                   <div className="db-rec-row-info">
@@ -174,7 +213,11 @@ export function Dashboard() {
                     <span className="db-rec-row-title">{rec.title ?? 'Live stream'}</span>
                   </div>
                   <span className="db-rec-row-timer">{elapsed[rec.id] ?? '0:00'}</span>
-                  <button className="btn btn-danger btn-sm" style={{ gap: 6, alignItems: 'center' }} onClick={() => stopRecording(rec.id)}>
+                  <button
+                    className="btn btn-danger btn-sm"
+                    style={{ gap: 6, alignItems: 'center' }}
+                    onClick={() => stopRecording(rec.id)}
+                  >
                     <Icon name="stop-circle-line" size={16} /> Stop
                   </button>
                 </div>
@@ -188,7 +231,10 @@ export function Dashboard() {
 }
 
 function StatCard({
-  value: rawValue, label, accent, action
+  value: rawValue,
+  label,
+  accent,
+  action,
 }: {
   value: number | null | undefined
   label: string
@@ -207,24 +253,31 @@ function StatCard({
 
   return (
     <div className="stat-card" style={{ position: 'relative' }}>
-      <div
-        className="stat-value"
-        ref={valRef}
-        style={accent ? { color: 'var(--accent)' } : undefined}
-      >
+      <div className="stat-value" ref={valRef} style={accent ? { color: 'var(--accent)' } : undefined}>
         {value.toLocaleString()}
       </div>
       <div className="stat-label">{label}</div>
       {action && (
         <button
-          onClick={e => { e.stopPropagation(); action.onClick() }}
+          onClick={(e) => {
+            e.stopPropagation()
+            action.onClick()
+          }}
           style={{
-            position: 'absolute', top: 12, right: 12,
-            fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 700,
-            letterSpacing: '0.08em', textTransform: 'uppercase',
-            color: 'var(--accent)', background: 'var(--accent-subtle)',
+            position: 'absolute',
+            top: 12,
+            right: 12,
+            fontFamily: 'var(--font-mono)',
+            fontSize: 10,
+            fontWeight: 700,
+            letterSpacing: '0.08em',
+            textTransform: 'uppercase',
+            color: 'var(--accent)',
+            background: 'var(--accent-subtle)',
             border: '1px solid var(--accent)',
-            borderRadius: 4, padding: '2px 8px', cursor: 'pointer',
+            borderRadius: 4,
+            padding: '2px 8px',
+            cursor: 'pointer',
           }}
         >
           {action.label}

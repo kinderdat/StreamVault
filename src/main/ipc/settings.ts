@@ -1,7 +1,7 @@
-import { ipcMain, app, dialog, shell } from 'electron'
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs'
-import path from 'path'
+import { app, dialog, ipcMain, shell } from 'electron'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { statfs } from 'fs/promises'
+import path from 'path'
 
 class JsonStore {
   private file: string | null = null
@@ -80,8 +80,9 @@ export function registerSettingsIpc(): void {
   })
 
   ipcMain.handle('settings:openRecordingsFolder', async () => {
-    const p = (store.get('storagePath') as string | undefined)
-      || path.join(require('os').homedir(), 'Videos', 'StreamVault')
+    const p =
+      (store.get('storagePath') as string | undefined) ||
+      path.join(require('os').homedir(), 'Videos', 'StreamVault')
     await shell.openPath(p)
   })
 }

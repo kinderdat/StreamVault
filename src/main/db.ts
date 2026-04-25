@@ -1,5 +1,5 @@
-import { app } from 'electron'
 import Database from 'better-sqlite3'
+import { app } from 'electron'
 import path from 'path'
 
 let db: Database.Database | null = null
@@ -63,7 +63,11 @@ export function getDb(): Database.Database {
       );
     `)
     // Migrations for existing DBs
-    try { db.exec('ALTER TABLE recordings ADD COLUMN category TEXT') } catch { /* column already exists */ }
+    try {
+      db.exec('ALTER TABLE recordings ADD COLUMN category TEXT')
+    } catch {
+      /* column already exists */
+    }
   }
   return db
 }
@@ -71,13 +75,17 @@ export function getDb(): Database.Database {
 // ── Streamer queries ─────────────────────────────────────────────
 export const streamers = {
   getAll() {
-    return getDb().prepare(`
+    return getDb()
+      .prepare(
+        `
       SELECT s.*,
         (SELECT COUNT(*) FROM recordings r WHERE r.streamer_id = s.id) as recording_count,
         (SELECT MAX(r.stream_date) FROM recordings r WHERE r.streamer_id = s.id) as last_recording_at
       FROM streamers s
       ORDER BY s.added_at DESC
-    `).all()
+    `,
+      )
+      .all()
   },
   getActive() {
     return getDb().prepare('SELECT * FROM streamers WHERE is_active = 1').all()
@@ -92,27 +100,43 @@ export const streamers = {
     display_name?: string
     avatar_url?: string
   }) {
-    const r = getDb().prepare(`
+    const r = getDb()
+      .prepare(
+        `
       INSERT INTO streamers (platform, username, channel_url, display_name, avatar_url, added_at)
       VALUES (@platform, @username, @channel_url, @display_name, @avatar_url, @added_at)
-    `).run({ ...data, display_name: data.display_name ?? data.username, avatar_url: data.avatar_url ?? null, added_at: Date.now() })
+    `,
+      )
+      .run({
+        ...data,
+        display_name: data.display_name ?? data.username,
+        avatar_url: data.avatar_url ?? null,
+        added_at: Date.now(),
+      })
     return getDb().prepare('SELECT * FROM streamers WHERE id = ?').get(r.lastInsertRowid)
   },
   remove(id: number) {
     getDb().prepare('DELETE FROM streamers WHERE id = ?').run(id)
   },
   setActive(id: number, active: boolean) {
-    getDb().prepare('UPDATE streamers SET is_active = ? WHERE id = ?').run(active ? 1 : 0, id)
+    getDb()
+      .prepare('UPDATE streamers SET is_active = ? WHERE id = ?')
+      .run(active ? 1 : 0, id)
   },
   updateChecked(id: number, checkedAt: number, liveAt?: number) {
     if (liveAt != null) {
-      getDb().prepare('UPDATE streamers SET last_checked = ?, last_live_at = ? WHERE id = ?').run(checkedAt, liveAt, id)
+      getDb()
+        .prepare('UPDATE streamers SET last_checked = ?, last_live_at = ? WHERE id = ?')
+        .run(checkedAt, liveAt, id)
     } else {
       getDb().prepare('UPDATE streamers SET last_checked = ? WHERE id = ?').run(checkedAt, id)
     }
   },
   updateMeta(id: number, data: { display_name?: string; avatar_url?: string }) {
-    getDb().prepare('UPDATE streamers SET display_name = COALESCE(@display_name, display_name), avatar_url = COALESCE(@avatar_url, avatar_url) WHERE id = @id')
+    getDb()
+      .prepare(
+        'UPDATE streamers SET display_name = COALESCE(@display_name, display_name), avatar_url = COALESCE(@avatar_url, avatar_url) WHERE id = @id',
+      )
       .run({ id, display_name: data.display_name ?? null, avatar_url: data.avatar_url ?? null })
   },
 }
@@ -120,32 +144,46 @@ export const streamers = {
 // ── Recording queries ────────────────────────────────────────────
 export const recordings = {
   getAll() {
-    return getDb().prepare(`
+    return getDb()
+      .prepare(
+        `
       SELECT r.*, s.display_name as streamer_name, s.avatar_url as streamer_avatar
       FROM recordings r
       JOIN streamers s ON r.streamer_id = s.id
       ORDER BY r.stream_date DESC
-    `).all()
+    `,
+      )
+      .all()
   },
   getByStreamer(streamerId: number) {
-    return getDb().prepare(`
+    return getDb()
+      .prepare(
+        `
       SELECT r.*, s.display_name as streamer_name
       FROM recordings r
       JOIN streamers s ON r.streamer_id = s.id
       WHERE r.streamer_id = ?
       ORDER BY r.stream_date DESC
-    `).all(streamerId)
+    `,
+      )
+      .all(streamerId)
   },
   getById(id: number) {
-    return getDb().prepare(`
+    return getDb()
+      .prepare(
+        `
       SELECT r.*, s.display_name as streamer_name, s.avatar_url as streamer_avatar, s.platform as streamer_platform
       FROM recordings r
       JOIN streamers s ON r.streamer_id = s.id
       WHERE r.id = ?
-    `).get(id)
+    `,
+      )
+      .get(id)
   },
   getActiveForStreamer(streamerId: number) {
-    return getDb().prepare("SELECT * FROM recordings WHERE streamer_id = ? AND status IN ('recording', 'processing')").get(streamerId)
+    return getDb()
+      .prepare("SELECT * FROM recordings WHERE streamer_id = ? AND status IN ('recording', 'processing')")
+      .get(streamerId)
   },
   add(data: {
     streamer_id: number
@@ -158,36 +196,50 @@ export const recordings = {
     viewer_count?: number
     category?: string
   }) {
-    const r = getDb().prepare(`
+    const r = getDb()
+      .prepare(
+        `
       INSERT INTO recordings (streamer_id, title, platform, stream_date, status, started_at, file_path, viewer_count, category)
       VALUES (@streamer_id, @title, @platform, @stream_date, @status, @started_at, @file_path, @viewer_count, @category)
-    `).run({ title: null, file_path: null, viewer_count: null, category: null, ...data })
+    `,
+      )
+      .run({ title: null, file_path: null, viewer_count: null, category: null, ...data })
     return r.lastInsertRowid as number
   },
-  update(id: number, data: Partial<{
-    title: string
-    file_path: string
-    thumbnail_path: string
-    duration_secs: number
-    file_size_bytes: number
-    video_codec: string
-    audio_codec: string
-    resolution: string
-    fps: number
-    language: string
-    viewer_count: number
-    category: string
-    status: string
-    completed_at: number
-  }>) {
-    const fields = Object.keys(data).map(k => `${k} = @${k}`).join(', ')
-    getDb().prepare(`UPDATE recordings SET ${fields} WHERE id = @id`).run({ id, ...data })
+  update(
+    id: number,
+    data: Partial<{
+      title: string
+      file_path: string
+      thumbnail_path: string
+      duration_secs: number
+      file_size_bytes: number
+      video_codec: string
+      audio_codec: string
+      resolution: string
+      fps: number
+      language: string
+      viewer_count: number
+      category: string
+      status: string
+      completed_at: number
+    }>,
+  ) {
+    if (Object.keys(data).length === 0) return
+    const fields = Object.keys(data)
+      .map((k) => `${k} = @${k}`)
+      .join(', ')
+    getDb()
+      .prepare(`UPDATE recordings SET ${fields} WHERE id = @id`)
+      .run({ id, ...data })
   },
   delete(id: number) {
     getDb().prepare('DELETE FROM recordings WHERE id = ?').run(id)
   },
   getStats() {
-    return getDb().prepare(`
+    return getDb()
+      .prepare(
+        `
       SELECT
         COUNT(*) as total,
         COALESCE(SUM(CASE WHEN status = 'recording' THEN 1 ELSE 0 END), 0) as active,
@@ -195,19 +247,31 @@ export const recordings = {
         COALESCE(SUM(COALESCE(duration_secs, 0)), 0) as total_duration,
         COALESCE(SUM(CASE WHEN stream_date > ? THEN 1 ELSE 0 END), 0) as last_24h
       FROM recordings
-    `).get(Date.now() - 86400000) as { total: number; active: number; failed: number; total_duration: number; last_24h: number }
+    `,
+      )
+      .get(Date.now() - 86400000) as {
+      total: number
+      active: number
+      failed: number
+      total_duration: number
+      last_24h: number
+    }
   },
   deleteAllFailed() {
-    const rows = getDb().prepare("SELECT file_path FROM recordings WHERE status = 'failed'").all() as { file_path: string | null }[]
+    const rows = getDb().prepare("SELECT file_path FROM recordings WHERE status = 'failed'").all() as {
+      file_path: string | null
+    }[]
     getDb().prepare("DELETE FROM recordings WHERE status = 'failed'").run()
-    return rows.map(r => r.file_path).filter(Boolean) as string[]
+    return rows.map((r) => r.file_path).filter(Boolean) as string[]
   },
 }
 
 // ── Clip queries ─────────────────────────────────────────────────
 export const clips = {
   getAll() {
-    return getDb().prepare(`
+    return getDb()
+      .prepare(
+        `
       SELECT c.*,
         r.title  as recording_title, r.file_path as recording_file_path,
         s.display_name as streamer_name, s.platform
@@ -215,19 +279,27 @@ export const clips = {
       JOIN recordings r ON c.recording_id = r.id
       JOIN streamers  s ON r.streamer_id  = s.id
       ORDER BY c.created_at DESC
-    `).all()
+    `,
+      )
+      .all()
   },
   getByRecording(recordingId: number) {
-    return getDb().prepare(`
+    return getDb()
+      .prepare(
+        `
       SELECT c.*, r.title as recording_title
       FROM clips c
       JOIN recordings r ON c.recording_id = r.id
       WHERE c.recording_id = ?
       ORDER BY c.start_secs ASC
-    `).all(recordingId)
+    `,
+      )
+      .all(recordingId)
   },
   getById(id: number) {
-    return getDb().prepare(`
+    return getDb()
+      .prepare(
+        `
       SELECT c.*,
         r.title as recording_title, r.file_path as recording_file_path,
         s.display_name as streamer_name, s.platform
@@ -235,7 +307,9 @@ export const clips = {
       JOIN recordings r ON c.recording_id = r.id
       JOIN streamers  s ON r.streamer_id  = s.id
       WHERE c.id = ?
-    `).get(id)
+    `,
+      )
+      .get(id)
   },
   create(data: {
     recording_id: number
@@ -246,26 +320,43 @@ export const clips = {
     thumbnail_path?: string
     duration_secs?: number
   }) {
-    const { lastInsertRowid } = getDb().prepare(`
+    const { lastInsertRowid } = getDb()
+      .prepare(
+        `
       INSERT INTO clips (recording_id, title, start_secs, end_secs, file_path,
         thumbnail_path, duration_secs, created_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      data.recording_id, data.title, data.start_secs, data.end_secs,
-      data.file_path ?? null, data.thumbnail_path ?? null,
-      data.duration_secs ?? null, Date.now()
-    )
+    `,
+      )
+      .run(
+        data.recording_id,
+        data.title,
+        data.start_secs,
+        data.end_secs,
+        data.file_path ?? null,
+        data.thumbnail_path ?? null,
+        data.duration_secs ?? null,
+        Date.now(),
+      )
     return Number(lastInsertRowid)
   },
-  update(id: number, data: Partial<{ title: string; file_path: string; thumbnail_path: string; duration_secs: number }>) {
-    const sets = Object.keys(data).map(k => `${k} = ?`).join(', ')
+  update(
+    id: number,
+    data: Partial<{ title: string; file_path: string; thumbnail_path: string; duration_secs: number }>,
+  ) {
+    const sets = Object.keys(data)
+      .map((k) => `${k} = ?`)
+      .join(', ')
     if (!sets) return
-    getDb().prepare(`UPDATE clips SET ${sets} WHERE id = ?`).run(...Object.values(data), id)
+    getDb()
+      .prepare(`UPDATE clips SET ${sets} WHERE id = ?`)
+      .run(...Object.values(data), id)
   },
   delete(id: number) {
-    const row = getDb().prepare('SELECT file_path, thumbnail_path FROM clips WHERE id = ?').get(id) as { file_path?: string; thumbnail_path?: string } | undefined
+    const row = getDb().prepare('SELECT file_path, thumbnail_path FROM clips WHERE id = ?').get(id) as
+      | { file_path?: string; thumbnail_path?: string }
+      | undefined
     getDb().prepare('DELETE FROM clips WHERE id = ?').run(id)
     return row
   },
 }
-

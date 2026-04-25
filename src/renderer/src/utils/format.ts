@@ -47,7 +47,7 @@ export function fileUrl(filePath: string | null | undefined): string | undefined
   const encoded = filePath
     .replace(/\\/g, '/')
     .split('/')
-    .map(seg => encodeURIComponent(seg))
+    .map((seg) => encodeURIComponent(seg))
     .join('/')
   return 'media:///' + encoded
 }

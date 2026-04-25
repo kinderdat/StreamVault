@@ -4,6 +4,7 @@
   "compilerOptions": {
     "composite": true,
     "noEmit": true,
+    "ignoreDeprecations": "6.0",
     "tsBuildInfoFile": "./node_modules/.cache/tsconfig.web.tsbuildinfo",
     "baseUrl": ".",
     "paths": {

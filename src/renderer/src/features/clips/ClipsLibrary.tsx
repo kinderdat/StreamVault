@@ -1,24 +1,30 @@
-import { useEffect, useState, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+
 import { useNavigate } from 'react-router'
-import { animate, createScope } from 'animejs'
-import { useClipsStore } from '../stores/clipsStore'
-import { usePlayerStore } from '../stores/playerStore'
-import { PlatformBadge } from '../components/PlatformBadge'
-import { formatDuration, formatDate, fileUrl } from '../utils/format'
-import { staggerIn } from '../utils/anime'
-import type { Clip } from '../types/domain'
-import { Icon } from '../components/Icon'
+
+import { Icon } from '@renderer/components/Icon'
+import { PlatformBadge } from '@renderer/components/PlatformBadge'
+import { useClipsStore } from '@renderer/stores/clipsStore'
+import { usePlayerStore } from '@renderer/stores/playerStore'
+import type { Clip } from '@renderer/types/domain'
+import { staggerIn } from '@renderer/utils/anime'
+import { fileUrl, formatDate, formatDuration } from '@renderer/utils/format'
+import { createScope } from 'animejs'
+
+import '../recordings/recording-cards.css'
 
 export function ClipsLibrary() {
   const { clips, loading, load, remove } = useClipsStore()
-  const loadPlayer  = usePlayerStore(s => s.load)
-  const navigate    = useNavigate()
-  const [search, setSearch]   = useState('')
+  const loadPlayer = usePlayerStore((s) => s.load)
+  const navigate = useNavigate()
+  const [search, setSearch] = useState('')
   const [deleting, setDeleting] = useState<number | null>(null)
   const gridRef = useRef<HTMLDivElement>(null)
   const prevLen = useRef(-1)
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    load()
+  }, [])
 
   // Stagger cards after load
   useEffect(() => {
@@ -32,16 +38,20 @@ export function ClipsLibrary() {
       scope = createScope({ root: container })
       scope.add(() => staggerIn(container.querySelectorAll('.clip-card'), { delay: 30, distance: 10 }))
     }, 30)
-    return () => { clearTimeout(t); scope?.revert() }
+    return () => {
+      clearTimeout(t)
+      scope?.revert()
+    }
   }, [clips.length, loading])
 
   const filtered = useMemo(() => {
     if (!search.trim()) return clips
     const q = search.toLowerCase()
-    return clips.filter(c =>
-      c.title?.toLowerCase().includes(q) ||
-      c.streamer_name?.toLowerCase().includes(q) ||
-      c.recording_title?.toLowerCase().includes(q)
+    return clips.filter(
+      (c) =>
+        c.title?.toLowerCase().includes(q) ||
+        c.streamer_name?.toLowerCase().includes(q) ||
+        c.recording_title?.toLowerCase().includes(q),
     )
   }, [clips, search])
 
@@ -49,7 +59,11 @@ export function ClipsLibrary() {
     e.stopPropagation()
     if (!confirm('Delete this clip and its file?')) return
     setDeleting(id)
-    try { await remove(id) } finally { setDeleting(null) }
+    try {
+      await remove(id)
+    } finally {
+      setDeleting(null)
+    }
   }
 
   function handlePlay(clip: Clip) {
@@ -71,7 +85,12 @@ export function ClipsLibrary() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
         <div className="search-bar" style={{ flex: 1, minWidth: 180, marginBottom: 0 }}>
           <Icon name="search-line" size={16} style={{ color: 'var(--text-disabled)', flexShrink: 0 }} />
-          <input className="search-input" placeholder="Search clips..." value={search} onChange={e => setSearch(e.target.value)} />
+          <input
+            className="search-input"
+            placeholder="Search clips..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
         </div>
       </div>
 
@@ -81,7 +100,9 @@ export function ClipsLibrary() {
 
       {loading ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          {Array.from({ length: 4 }).map((_, i) => <div key={i} className="skeleton-row" />)}
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="skeleton-row" />
+          ))}
         </div>
       ) : filtered.length === 0 ? (
         <div className="empty-state">
@@ -91,14 +112,16 @@ export function ClipsLibrary() {
         </div>
       ) : (
         <div ref={gridRef} className="recordings-grid clips-grid">
-          {filtered.map(clip => (
+          {filtered.map((clip) => (
             <ClipCard
               key={clip.id}
               clip={clip}
               deleting={deleting === clip.id}
               onPlay={() => handlePlay(clip)}
-              onOpenFolder={() => { if (clip.file_path) window.electronAPI.clipsOpenFolder(clip.file_path) }}
-              onDelete={e => handleDelete(e, clip.id)}
+              onOpenFolder={() => {
+                if (clip.file_path) window.electronAPI.clipsOpenFolder(clip.file_path)
+              }}
+              onDelete={(e) => handleDelete(e, clip.id)}
             />
           ))}
         </div>
@@ -107,7 +130,13 @@ export function ClipsLibrary() {
   )
 }
 
-function ClipCard({ clip, deleting, onPlay, onOpenFolder, onDelete }: {
+function ClipCard({
+  clip,
+  deleting,
+  onPlay,
+  onOpenFolder,
+  onDelete,
+}: {
   clip: Clip
   deleting: boolean
   onPlay: () => void
@@ -119,10 +148,13 @@ function ClipCard({ clip, deleting, onPlay, onOpenFolder, onDelete }: {
   return (
     <div className="recording-card clip-card" onClick={onPlay} style={{ cursor: 'pointer' }}>
       <div className="recording-card-thumb">
-        {thumb
-          ? <img src={thumb} alt={clip.title ?? ''} loading="lazy" />
-          : <div className="recording-card-thumb-placeholder"><Icon name="scissors-2-line" size={20} /></div>
-        }
+        {thumb ? (
+          <img src={thumb} alt={clip.title ?? ''} loading="lazy" />
+        ) : (
+          <div className="recording-card-thumb-placeholder">
+            <Icon name="scissors-2-line" size={20} />
+          </div>
+        )}
         <div className="recording-card-overlay">
           <PlatformBadge platform={clip.platform} />
         </div>
@@ -134,24 +166,29 @@ function ClipCard({ clip, deleting, onPlay, onOpenFolder, onDelete }: {
         <div className="recording-card-title">{clip.title ?? 'Untitled clip'}</div>
         <div className="recording-card-meta">
           <span className="recording-card-streamer">{clip.streamer_name}</span>
-          {clip.recording_title && (
-            <span className="clip-recording-ref">
-              {clip.recording_title}
-            </span>
-          )}
+          {clip.recording_title && <span className="clip-recording-ref">{clip.recording_title}</span>}
           <span className="recording-card-date">{formatDate(clip.created_at)}</span>
         </div>
         {/* Action row */}
-        <div className="clip-card-actions" onClick={e => e.stopPropagation()}>
+        <div className="clip-card-actions" onClick={(e) => e.stopPropagation()}>
           <button className="btn btn-ghost btn-sm clip-card-play" onClick={onPlay} title="Play">
             <Icon name="play-fill" size={16} /> Play
           </button>
           {clip.file_path && (
-            <button className="btn btn-ghost btn-sm clip-card-icon" onClick={onOpenFolder} title="Open folder">
+            <button
+              className="btn btn-ghost btn-sm clip-card-icon"
+              onClick={onOpenFolder}
+              title="Open folder"
+            >
               <Icon name="folder-open-line" size={16} />
             </button>
           )}
-          <button className="btn btn-ghost btn-sm clip-card-icon clip-card-delete" onClick={onDelete} disabled={deleting} title="Delete">
+          <button
+            className="btn btn-ghost btn-sm clip-card-icon clip-card-delete"
+            onClick={onDelete}
+            disabled={deleting}
+            title="Delete"
+          >
             <Icon name="delete-bin-line" size={16} />
           </button>
         </div>

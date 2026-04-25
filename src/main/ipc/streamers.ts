@@ -1,8 +1,9 @@
-import { ipcMain, BrowserWindow } from 'electron'
+import { BrowserWindow, ipcMain } from 'electron'
 import { z } from 'zod'
+
 import { streamers } from '../db'
-import { detectPlatform, extractUsername, fetchAvatarUrl } from '../platforms'
 import { checkStreamerNow } from '../monitor'
+import { detectPlatform, extractUsername, fetchAvatarUrl } from '../platforms'
 
 const streamerIdSchema = z.number().int().positive()
 const channelUrlSchema = z.string().trim().url().max(512)
@@ -22,7 +23,12 @@ export function registerStreamersIpc(): void {
     const platform = detectPlatform(safeChannelUrl)
     const username = extractUsername(safeChannelUrl, platform)
     try {
-      const row = streamers.add({ platform, username, channel_url: safeChannelUrl, display_name: username }) as Record<string, unknown>
+      const row = streamers.add({
+        platform,
+        username,
+        channel_url: safeChannelUrl,
+        display_name: username,
+      }) as Record<string, unknown>
       const id = row.id as number
       // Block on avatar fetch so PFP is included in the returned row immediately
       try {
@@ -31,7 +37,9 @@ export function registerStreamersIpc(): void {
           streamers.updateMeta(id, { avatar_url: avatarUrl })
           row.avatar_url = avatarUrl
         }
-      } catch { /* non-critical — streamer still added */ }
+      } catch {
+        /* non-critical — streamer still added */
+      }
       return row
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err)
@@ -54,13 +62,18 @@ export function registerStreamersIpc(): void {
 
   // Refresh avatars for all streamers that don't have one yet
   ipcMain.handle('streamers:refreshAvatars', async () => {
-    const all = streamers.getAll() as Array<{ id: number; platform: string; username: string; avatar_url: string | null }>
-    const missing = all.filter(s => !s.avatar_url)
+    const all = streamers.getAll() as Array<{
+      id: number
+      platform: string
+      username: string
+      avatar_url: string | null
+    }>
+    const missing = all.filter((s) => !s.avatar_url)
     await Promise.allSettled(
-      missing.map(async s => {
+      missing.map(async (s) => {
         const url = await fetchAvatarUrl(s.platform, s.username)
         if (url) streamers.updateMeta(s.id, { avatar_url: url })
-      })
+      }),
     )
     return streamers.getAll()
   })

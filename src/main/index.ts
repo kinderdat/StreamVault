@@ -1,14 +1,56 @@
-import { app, BrowserWindow, shell, ipcMain, protocol, Tray, Menu, nativeImage } from 'electron'
-import { join, extname } from 'path'
-import { existsSync, statSync, createReadStream } from 'fs'
+import { BrowserWindow, Menu, Tray, app, ipcMain, nativeImage, protocol, shell } from 'electron'
+import { createReadStream, existsSync, statSync } from 'fs'
+import Module from 'module'
+import { extname, join } from 'path'
+import semver from 'semver'
 import { Readable } from 'stream'
-import { cleanupPlaybackCache, ensurePlayableMp4, mediaRequestToFilePath, prepareLocalPlaybackHref } from './mediaPrepare'
+import { updateElectronApp } from 'update-electron-app'
+
+import { registerClipsIpc } from './ipc/clips'
+import { registerMonitorIpc } from './ipc/monitor'
+import { registerRecordingsIpc } from './ipc/recordings'
+import { registerSettingsIpc } from './ipc/settings'
+import { store } from './ipc/settings'
+import { registerStreamersIpc, setStreamersWindow } from './ipc/streamers'
+import { registerWindowIpc } from './ipc/window'
+import {
+  cleanupPlaybackCache,
+  ensurePlayableMp4,
+  mediaRequestToFilePath,
+  prepareLocalPlaybackHref,
+} from './mediaPrepare'
+import { startMonitor, stopMonitor } from './monitor'
+import { killAllProcesses, setMainWindow, stopAll } from './recorder'
+
+declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string
+declare const MAIN_WINDOW_VITE_NAME: string
 
 let isQuitting = false
 
+// Allow resolving runtime dependencies packaged under `resources/node_modules/*`.
+// Forge + Vite bundles app code into `app.asar` without `node_modules`, but native deps must remain external.
+try {
+  ;(Module as unknown as { globalPaths: string[] }).globalPaths.push(
+    join(process.resourcesPath, 'node_modules'),
+  )
+} catch {
+  /* dev mode or unusual env */
+}
+
+if (require('electron-squirrel-startup')) {
+  app.quit()
+}
+
+updateElectronApp({
+  repo: 'kinderdat/StreamVault',
+  updateInterval: '10 minutes',
+  logger: console,
+})
+
 // ── Codec flags (before app.whenReady) ───────────────────────────
-app.commandLine.appendSwitch('enable-features',
-  'PlatformHEVCDecoderSupport,HardwareMediaKeyHandling,MediaSessionService'
+app.commandLine.appendSwitch(
+  'enable-features',
+  'PlatformHEVCDecoderSupport,HardwareMediaKeyHandling,MediaSessionService',
 )
 app.commandLine.appendSwitch('enable-accelerated-video-decode')
 app.commandLine.appendSwitch('enable-gpu-rasterization')
@@ -18,26 +60,40 @@ app.commandLine.appendSwitch('force-device-scale-factor', '1')
 
 // ── media:// protocol — serves local files (images + video with range support) ──
 // Must register scheme before app is ready
-protocol.registerSchemesAsPrivileged([{
-  scheme: 'media',
-  privileges: { secure: true, supportFetchAPI: true, bypassCSP: true, corsEnabled: true, stream: true },
-}])
-
-import { registerWindowIpc } from './ipc/window'
-import { registerSettingsIpc } from './ipc/settings'
-import { registerStreamersIpc, setStreamersWindow } from './ipc/streamers'
-import { registerRecordingsIpc } from './ipc/recordings'
-import { registerMonitorIpc } from './ipc/monitor'
-import { registerClipsIpc } from './ipc/clips'
-import { setMainWindow, stopAll, killAllProcesses } from './recorder'
-import { startMonitor, stopMonitor } from './monitor'
-import { store } from './ipc/settings'
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: 'media',
+    privileges: { secure: true, supportFetchAPI: true, bypassCSP: true, corsEnabled: true, stream: true },
+  },
+])
 
 ipcMain.handle('media:preparePlayback', async (_e, rawPath: unknown) => {
   if (typeof rawPath !== 'string' || !rawPath.trim()) {
     throw new Error('Invalid path')
   }
   return prepareLocalPlaybackHref(rawPath)
+})
+
+ipcMain.handle('updates:check', async () => {
+  const current = app.getVersion()
+  const url = 'https://api.github.com/repos/kinderdat/StreamVault/releases/latest'
+  const res = await fetch(url, {
+    headers: {
+      'User-Agent': 'StreamVault',
+      Accept: 'application/vnd.github+json',
+    },
+  })
+  if (!res.ok) throw new Error(`GitHub latest release fetch failed (${res.status})`)
+  const data = (await res.json()) as { tag_name?: string; html_url?: string }
+  const tag = data.tag_name ?? ''
+  const latest = semver.coerce(tag)?.version ?? tag.replace(/^v/, '')
+  const updateAvailable = Boolean(latest && semver.valid(latest) && semver.gt(latest, current))
+  return {
+    current,
+    latest,
+    updateAvailable,
+    url: data.html_url ?? 'https://github.com/kinderdat/StreamVault/releases',
+  }
 })
 
 let mainWindow: BrowserWindow | null = null
@@ -73,7 +129,7 @@ function resolveTrayIcon(): Electron.NativeImage {
 
   // High-contrast fallback so tray icon is always visible.
   return nativeImage.createFromDataURL(
-    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAQAAAC1+jfqAAAAv0lEQVQoz53SMUoDQRAG4E8R0QhW8Qm2lnY2Vha2Ns7A0sJCSy0tLMTCQhI8g2i0EbxAJWJrY2FhWJj8k8n6DIf5mR3+79j5mQEeQWz6b4A2q6B8j4QkJwR2r9mJ+E2K6m8xJfQ6JkqfQx0p6Q3Qy5G8mQ7wqQ6h6tG0k8z5rQf4k1Vj2jvN0mJfR7rN9wH3y4wC4yqHq0QxkN9hM1b6f2u8Lz+q0G3i9j2r8s2v8zvYHn0YQw3Y1v0x8Q0y9vF7N4y5F1n0m5Vn0o8o2j9g8f5nQfQf3N5xk2W0tJd1gAAAABJRU5ErkJggg=='
+    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAQAAAC1+jfqAAAAv0lEQVQoz53SMUoDQRAG4E8R0QhW8Qm2lnY2Vha2Ns7A0sJCSy0tLMTCQhI8g2i0EbxAJWJrY2FhWJj8k8n6DIf5mR3+79j5mQEeQWz6b4A2q6B8j4QkJwR2r9mJ+E2K6m8xJfQ6JkqfQx0p6Q3Qy5G8mQ7wqQ6h6tG0k8z5rQf4k1Vj2jvN0mJfR7rN9wH3y4wC4yqHq0QxkN9hM1b6f2u8Lz+q0G3i9j2r8s2v8zvYHn0YQw3Y1v0x8Q0y9vF7N4y5F1n0m5Vn0o8o2j9g8f5nQfQf3N5xk2W0tJd1gAAAABJRU5ErkJggg==',
   )
 }
 
@@ -98,14 +154,23 @@ function createWindow(): void {
       }
 
       const mime =
-        ext === '.mp4'  ? 'video/mp4' :
-        ext === '.ts'   ? 'video/mp2t' :
-        ext === '.mkv'  ? 'video/x-matroska' :
-        ext === '.webm' ? 'video/webm' :
-        ext === '.mov'  ? 'video/quicktime' :
-        ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' :
-        ext === '.png'  ? 'image/png'  :
-        ext === '.webp' ? 'image/webp' : 'application/octet-stream'
+        ext === '.mp4'
+          ? 'video/mp4'
+          : ext === '.ts'
+            ? 'video/mp2t'
+            : ext === '.mkv'
+              ? 'video/x-matroska'
+              : ext === '.webm'
+                ? 'video/webm'
+                : ext === '.mov'
+                  ? 'video/quicktime'
+                  : ext === '.jpg' || ext === '.jpeg'
+                    ? 'image/jpeg'
+                    : ext === '.png'
+                      ? 'image/png'
+                      : ext === '.webp'
+                        ? 'image/webp'
+                        : 'application/octet-stream'
 
       const stat = statSync(filePath)
       const fileSize = stat.size
@@ -158,6 +223,8 @@ function createWindow(): void {
     transparent: false,
     backgroundColor: '#000000',
     titleBarStyle: 'hidden',
+    /* Win11+/macOS: frameless window uses OS-rounded HWND corners (no px API in Electron). */
+    roundedCorners: true,
     show: false,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -170,7 +237,11 @@ function createWindow(): void {
   })
 
   if (process.platform === 'win32') {
-    try { mainWindow.setBackgroundMaterial('acrylic') } catch { /* no-op */ }
+    try {
+      mainWindow.setBackgroundMaterial('acrylic')
+    } catch {
+      /* no-op */
+    }
   }
 
   mainWindow.on('ready-to-show', () => {
@@ -181,19 +252,61 @@ function createWindow(): void {
       mainWindow?.show()
     }
   })
+  let didRendererLoad = false
+  const startupShowTimeout = setTimeout(() => {
+    if (!didRendererLoad && mainWindow && !mainWindow.isDestroyed()) {
+      console.warn('[window] startup timeout: forcing show/focus before renderer finished loading')
+      mainWindow.show()
+      mainWindow.focus()
+    }
+  }, 12_000)
+  startupShowTimeout.unref()
+  mainWindow.webContents.on('did-finish-load', () => {
+    didRendererLoad = true
+    clearTimeout(startupShowTimeout)
+  })
+  mainWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
+    clearTimeout(startupShowTimeout)
+    console.error('[window] did-fail-load', { errorCode, errorDescription, validatedURL })
+    mainWindow?.show()
+    mainWindow?.focus()
+  })
+  mainWindow.webContents.on('render-process-gone', (_event, details) => {
+    clearTimeout(startupShowTimeout)
+    console.error('[window] render-process-gone', details)
+    mainWindow?.show()
+    mainWindow?.focus()
+  })
 
   // ── System tray ─────────────────────────────────────────────────
   const trayIcon = resolveTrayIcon()
   tray = new Tray(trayIcon)
   tray.setToolTip('StreamVault')
-  tray.setContextMenu(Menu.buildFromTemplate([
-    { label: 'Show StreamVault', click: () => { mainWindow?.show(); mainWindow?.focus() } },
-    { type: 'separator' },
-    { label: 'Quit', click: () => { app.quit() } },
-  ]))
+  tray.setContextMenu(
+    Menu.buildFromTemplate([
+      {
+        label: 'Show StreamVault',
+        click: () => {
+          mainWindow?.show()
+          mainWindow?.focus()
+        },
+      },
+      { type: 'separator' },
+      {
+        label: 'Quit',
+        click: () => {
+          app.quit()
+        },
+      },
+    ]),
+  )
   tray.on('click', () => {
-    if (mainWindow?.isVisible()) { mainWindow.focus() }
-    else { mainWindow?.show(); mainWindow?.focus() }
+    if (mainWindow?.isVisible()) {
+      mainWindow.focus()
+    } else {
+      mainWindow?.show()
+      mainWindow?.focus()
+    }
   })
 
   // Hide to tray on close instead of quitting
@@ -233,15 +346,30 @@ function createWindow(): void {
   // has no live process — mark them failed so the UI doesn't get stuck.
   try {
     const { getDb } = require('./db')
-    getDb().prepare(
-      "UPDATE recordings SET status = 'failed', completed_at = ? WHERE status IN ('recording', 'processing')"
-    ).run(Date.now())
-  } catch { /* ignore */ }
+    getDb()
+      .prepare(
+        "UPDATE recordings SET status = 'failed', completed_at = ? WHERE status IN ('recording', 'processing')",
+      )
+      .run(Date.now())
+  } catch {
+    /* ignore */
+  }
 
-  if (process.env.ELECTRON_RENDERER_URL) {
+  if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
+    mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL)
+  } else if (process.env.ELECTRON_RENDERER_URL) {
     mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL)
   } else {
-    mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
+    const namedRendererIndex = join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`)
+    const flatRendererIndex = join(__dirname, '../renderer/index.html')
+    const rendererIndex = existsSync(namedRendererIndex) ? namedRendererIndex : flatRendererIndex
+    if (!existsSync(rendererIndex)) {
+      console.error('[window] renderer index not found', {
+        namedRendererIndex,
+        flatRendererIndex,
+      })
+    }
+    mainWindow.loadFile(rendererIndex)
   }
 }
 
@@ -261,7 +389,7 @@ app.on('before-quit', async () => {
   isQuitting = true
   stopMonitor()
   killAllProcesses() // hard-kill immediately so no orphans
-  await stopAll()    // graceful cleanup of DB state
+  await stopAll() // graceful cleanup of DB state
 })
 
 process.on('uncaughtException', async (err) => {
@@ -276,5 +404,11 @@ process.on('unhandledRejection', (reason) => {
 })
 
 // Also catch SIGTERM / SIGINT (Task Manager, Ctrl+C in terminal)
-process.on('SIGTERM', () => { killAllProcesses(); process.exit(0) })
-process.on('SIGINT',  () => { killAllProcesses(); process.exit(0) })
+process.on('SIGTERM', () => {
+  killAllProcesses()
+  process.exit(0)
+})
+process.on('SIGINT', () => {
+  killAllProcesses()
+  process.exit(0)
+})

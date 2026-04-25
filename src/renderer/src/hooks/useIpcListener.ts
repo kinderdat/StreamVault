@@ -17,7 +17,7 @@ export function useIpcListener<T>(
   handler: (data: T) => void,
 ): void {
   const handlerRef = useRef(handler)
-  handlerRef.current = handler          // always keep the latest closure
+  handlerRef.current = handler // always keep the latest closure
 
   useEffect(() => {
     if (typeof register !== 'function') return

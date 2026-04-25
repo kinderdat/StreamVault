@@ -1,0 +1,368 @@
+/* ─── Page ────────────────────────────────────────────────────── */
+.page {
+  padding: var(--page-pad-y) var(--page-pad-x);
+  width: 100%;
+  box-sizing: border-box;
+}
+.page-header {
+  margin-bottom: var(--sp-6);
+}
+
+/* ─── Page title ──────────────────────────────────────────────── */
+.page-title {
+  font-family: var(--font-heading);
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--text-display);
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+/* ─── Icon buttons ────────────────────────────────────────────── */
+.icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-visible);
+  border-radius: var(--radius-xs);
+  transition:
+    color 150ms var(--ease),
+    border-color 150ms var(--ease),
+    background 150ms var(--ease),
+    transform 120ms var(--ease-spring),
+    box-shadow 150ms var(--ease);
+}
+.icon-btn:hover {
+  color: var(--text-display);
+  border-color: var(--text-secondary);
+  background: var(--surface-raised);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+.icon-btn:active {
+  transform: scale(0.94);
+  box-shadow: none;
+}
+.icon-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  transform: none !important;
+}
+.icon-btn--danger {
+  color: var(--text-disabled);
+}
+.icon-btn--danger:hover {
+  color: var(--danger);
+  border-color: var(--danger);
+  background: var(--danger-subtle);
+  box-shadow: 0 4px 12px var(--danger-subtle);
+}
+
+/* ─── Badges ──────────────────────────────────────────────────── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  min-height: var(--badge-height-md);
+  padding: 1px var(--badge-px-md);
+  border-radius: var(--radius-squircle-md);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  border: var(--badge-border-width) solid currentColor;
+}
+.badge-rec {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-subtle);
+  box-shadow: 0 0 8px var(--accent-subtle);
+}
+.badge-live {
+  color: var(--success);
+  border-color: var(--success);
+  background: var(--success-subtle);
+}
+.badge-completed {
+  color: var(--success);
+  border-color: var(--success);
+  background: var(--success-subtle);
+}
+.badge-failed {
+  color: var(--danger);
+  border-color: var(--danger);
+  background: var(--danger-subtle);
+}
+.badge-neutral {
+  color: var(--text-secondary);
+  border-color: var(--border-visible);
+  background: transparent;
+}
+
+/* ─── Platform badge ──────────────────────────────────────────── */
+.platform-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  min-height: var(--badge-height-md);
+  border-radius: var(--radius-squircle-md);
+  padding: 1px var(--badge-px-md);
+  border: var(--badge-border-width) solid color-mix(in srgb, var(--badge-color) 70%, transparent);
+  color: var(--badge-color);
+  background: color-mix(in srgb, var(--badge-color) 12%, transparent);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.platform-badge--md {
+  min-height: 24px;
+  font-size: 12px;
+  padding: 2px 12px;
+}
+
+/* ─── Buttons ─────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  padding: 8px 18px;
+  min-height: 38px;
+  border-radius: var(--radius-squircle-md);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  flex-shrink: 0;
+  max-width: 100%;
+  transition:
+    background 150ms var(--ease),
+    color 150ms var(--ease),
+    border-color 150ms var(--ease),
+    transform 120ms var(--ease-spring),
+    box-shadow 150ms var(--ease);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1;
+}
+.btn:active {
+  transform: scale(0.96);
+}
+.btn-sm {
+  padding: 5px 10px;
+  min-height: var(--control-height-sm);
+  font-size: 12px;
+  border-radius: var(--radius-squircle-sm);
+}
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+  border: 2px solid var(--accent);
+  box-shadow: 0 0 0 0 var(--accent-glow);
+}
+.btn-primary:hover {
+  background: color-mix(in srgb, var(--accent) 85%, white);
+  box-shadow: 0 4px 20px var(--accent-glow);
+  transform: translateY(-1px);
+}
+.btn-primary:active {
+  transform: scale(0.96);
+  box-shadow: none;
+}
+.btn-ghost {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 2px solid var(--border-visible);
+}
+.btn-ghost:hover {
+  color: var(--text-display);
+  border-color: var(--accent);
+  background: var(--surface-raised);
+  transform: translateY(-1px);
+}
+.btn-ghost:active {
+  transform: scale(0.96);
+}
+.btn-danger {
+  background: var(--danger-subtle);
+  color: var(--danger);
+  border: 2px solid var(--danger);
+  font-weight: 700;
+}
+.btn-danger:hover {
+  background: rgba(248, 113, 113, 0.22);
+  box-shadow: 0 4px 16px var(--danger-subtle);
+  transform: translateY(-1px);
+}
+.btn-danger:active {
+  transform: scale(0.96);
+  box-shadow: none;
+}
+.btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* ─── Toggle ──────────────────────────────────────────────────── */
+.toggle {
+  width: 40px;
+  height: 22px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-raised);
+  border: 1px solid var(--border-visible);
+  position: relative;
+  cursor: pointer;
+  transition:
+    background 200ms var(--ease),
+    border-color 200ms var(--ease),
+    box-shadow 200ms var(--ease);
+  flex-shrink: 0;
+}
+.toggle.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  box-shadow: 0 0 12px var(--accent-subtle);
+}
+.toggle-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--text-disabled);
+  transition:
+    transform 200ms var(--ease-spring),
+    background 200ms var(--ease);
+}
+.toggle.on .toggle-thumb {
+  transform: translateX(18px);
+  background: #fff;
+}
+
+/* ─── Live pulse dot ──────────────────────────────────────────── */
+.live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--success);
+  flex-shrink: 0;
+  animation: pulse-dot 2s ease-in-out infinite;
+  box-shadow: 0 0 0 0 var(--success-subtle);
+}
+
+/* ─── Empty state ─────────────────────────────────────────────── */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 72px var(--sp-8);
+  gap: var(--sp-3);
+}
+.empty-state-icon {
+  color: var(--text-disabled);
+  opacity: 0.2;
+}
+.empty-state h3 {
+  font-family: var(--font-heading);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+.empty-state p {
+  font-size: 14px;
+  color: var(--text-disabled);
+  text-align: center;
+  max-width: 280px;
+  line-height: 1.7;
+  font-weight: 500;
+}
+
+.skeleton-row {
+  height: 56px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(90deg, var(--surface) 25%, var(--surface-raised) 50%, var(--surface) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+/* ─── Forms ───────────────────────────────────────────────────── */
+.input-field {
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border-visible);
+  padding: 7px 0;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  outline: none;
+  width: 100%;
+  transition: border-color 150ms var(--ease);
+}
+.input-field:focus {
+  border-bottom-color: var(--accent);
+}
+.input-field::placeholder {
+  color: var(--text-disabled);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* ─── Section (generic) ───────────────────────────────────────── */
+.section {
+  margin-bottom: var(--sp-10);
+}
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding-bottom: var(--sp-2);
+  margin-bottom: 1px;
+  border-bottom: 1px solid var(--border-visible);
+}
+.section-title {
+  font-family: var(--font-heading);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  flex: 1;
+}
+
+/* ─── Spinner ─────────────────────────────────────────────────── */
+.spinner {
+  display: inline-block;
+  border-radius: 50%;
+  border: 1.5px solid var(--border-visible);
+  border-top-color: var(--accent);
+  animation: spin 0.6s linear infinite;
+}
+
+.dot-grid {
+  background-image: radial-gradient(circle, var(--border-visible) 1px, transparent 1px);
+  background-size: 16px 16px;
+}
+.dot-grid-subtle {
+  background-image: radial-gradient(circle, var(--border) 0.5px, transparent 0.5px);
+  background-size: 12px 12px;
+}
+
+/* ─── Focus ring (accessibility) ─────────────────────────────── */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}

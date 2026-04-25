@@ -1,7 +1,8 @@
 import { spawn } from 'child_process'
-import path from 'path'
 import { app } from 'electron'
 import { existsSync } from 'fs'
+import path from 'path'
+
 import { store } from './ipc/settings'
 
 export function getBinPath(name: 'yt-dlp' | 'ffmpeg' | 'ffprobe'): string {
@@ -49,8 +50,10 @@ export function extractMetadata(filePath: string, timeoutMs = 30_000): Promise<M
     }
 
     const proc = spawn(ffprobe, [
-      '-v', 'quiet',
-      '-print_format', 'json',
+      '-v',
+      'quiet',
+      '-print_format',
+      'json',
       '-show_streams',
       '-show_format',
       filePath,
@@ -58,13 +61,19 @@ export function extractMetadata(filePath: string, timeoutMs = 30_000): Promise<M
 
     const killTimer = setTimeout(() => {
       console.warn('[ffprobe] timed out on', filePath, '— killing')
-      try { proc.kill() } catch { /* already dead */ }
+      try {
+        proc.kill()
+      } catch {
+        /* already dead */
+      }
       resolve({})
     }, timeoutMs)
     killTimer.unref()
 
     let stdout = ''
-    proc.stdout.on('data', (d: Buffer) => { stdout += d.toString() })
+    proc.stdout.on('data', (d: Buffer) => {
+      stdout += d.toString()
+    })
     proc.on('close', () => {
       clearTimeout(killTimer)
       try {
@@ -98,33 +107,58 @@ export function extractMetadata(filePath: string, timeoutMs = 30_000): Promise<M
         resolve({})
       }
     })
-    proc.on('error', () => { clearTimeout(killTimer); resolve({}) })
+    proc.on('error', () => {
+      clearTimeout(killTimer)
+      resolve({})
+    })
   })
 }
 
-export function extractThumbnail(filePath: string, outputPath: string, atSecs = 30, timeoutMs = 30_000): Promise<boolean> {
+export function extractThumbnail(
+  filePath: string,
+  outputPath: string,
+  atSecs = 30,
+  timeoutMs = 30_000,
+): Promise<boolean> {
   return new Promise((resolve) => {
     const ffmpeg = getBinPath('ffmpeg')
-    if (!existsSync(ffmpeg)) { resolve(false); return }
+    if (!existsSync(ffmpeg)) {
+      resolve(false)
+      return
+    }
 
     const proc = spawn(ffmpeg, [
-      '-ss', String(atSecs),
-      '-i', filePath,
-      '-vframes', '1',
-      '-q:v', '2',
+      '-ss',
+      String(atSecs),
+      '-i',
+      filePath,
+      '-vframes',
+      '1',
+      '-q:v',
+      '2',
       '-y',
       outputPath,
     ])
 
     const killTimer = setTimeout(() => {
       console.warn('[ffmpeg] extractThumbnail timed out on', filePath, '— killing')
-      try { proc.kill() } catch { /* already dead */ }
+      try {
+        proc.kill()
+      } catch {
+        /* already dead */
+      }
       resolve(false)
     }, timeoutMs)
     killTimer.unref()
 
-    proc.on('close', (code) => { clearTimeout(killTimer); resolve(code === 0) })
-    proc.on('error', () => { clearTimeout(killTimer); resolve(false) })
+    proc.on('close', (code) => {
+      clearTimeout(killTimer)
+      resolve(code === 0)
+    })
+    proc.on('error', () => {
+      clearTimeout(killTimer)
+      resolve(false)
+    })
   })
 }
 
@@ -132,22 +166,31 @@ export function extractThumbnail(filePath: string, outputPath: string, atSecs = 
 export function captureSnapshot(inputPath: string, outputPath: string): Promise<boolean> {
   return new Promise((resolve) => {
     const ffmpeg = getBinPath('ffmpeg')
-    if (!existsSync(ffmpeg) || !existsSync(inputPath)) { resolve(false); return }
+    if (!existsSync(ffmpeg) || !existsSync(inputPath)) {
+      resolve(false)
+      return
+    }
 
     // -sseof -60: seek 60s from end; works on partial .ts files
     const proc = spawn(ffmpeg, [
-      '-sseof', '-60',
-      '-i', inputPath,
-      '-vframes', '1',
-      '-q:v', '4',
+      '-sseof',
+      '-60',
+      '-i',
+      inputPath,
+      '-vframes',
+      '1',
+      '-q:v',
+      '4',
       '-y',
       outputPath,
     ])
     proc.on('close', (code) => resolve(code === 0))
     proc.on('error', () => resolve(false))
     // Kill if takes too long
-    const t = setTimeout(() => { proc.kill(); resolve(false) }, 15000)
+    const t = setTimeout(() => {
+      proc.kill()
+      resolve(false)
+    }, 15000)
     proc.on('close', () => clearTimeout(t))
   })
 }
-

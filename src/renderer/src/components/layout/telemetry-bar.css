@@ -1,0 +1,81 @@
+/* ─── Bottom telemetry (same chrome height as title bar) ─────── */
+.telemetry-bar {
+  flex-shrink: 0;
+  height: var(--chrome-bar-height, 30px);
+  min-height: var(--chrome-bar-height, 30px);
+  max-height: var(--chrome-bar-height, 30px);
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  /* Start from sidebar edge so Idle centers on IPC rail */
+  margin: 2px calc(var(--frame-thickness) + 2px) 4px 8px;
+  padding: 0 12px 0 0;
+  border-radius: 10px;
+  border: none;
+  background: color-mix(in srgb, var(--surface-raised) 28%, var(--black));
+  position: relative;
+  z-index: var(--z-telemetry);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 850;
+  line-height: 1;
+}
+
+.telemetry-bar__inner {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: var(--sp-4);
+  min-width: 0;
+  overflow: hidden;
+}
+
+.telemetry-bar__idle-anchor {
+  width: 44px;
+  text-align: center;
+}
+
+.telemetry-bar__rec {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.telemetry-bar__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--danger);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--danger) 55%, transparent);
+  flex-shrink: 0;
+}
+
+.telemetry-bar__rec-count {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--danger);
+  line-height: 1;
+}
+
+.telemetry-bar__rec-label {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--text-disabled);
+  line-height: 1;
+}
+
+.telemetry-bar__stat {
+  color: var(--text-secondary);
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.telemetry-bar__stat--bitrate {
+  color: var(--text-primary);
+}
+
+.telemetry-bar__stat--muted {
+  color: var(--text-disabled);
+  font-weight: 600;
+}

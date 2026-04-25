@@ -1,0 +1,119 @@
+.cmdk-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(10px);
+  z-index: var(--z-popover);
+}
+
+.cmdk-dialog {
+  position: fixed;
+  top: 16%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(720px, calc(100vw - 24px));
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-visible);
+  background: color-mix(in srgb, var(--surface-raised) 78%, var(--black));
+  box-shadow: 0 18px 80px rgba(0, 0, 0, 0.75);
+  outline: none;
+}
+
+.cmdk-shell {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.cmdk-input-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-disabled);
+}
+
+.cmdk-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.cmdk-kbd {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--text-disabled);
+  border: 1px solid var(--border-visible);
+  border-radius: 8px;
+  padding: 4px 6px;
+}
+
+.cmdk-list {
+  max-height: min(420px, 60vh);
+  overflow: auto;
+  padding: 8px;
+}
+
+.cmdk-empty {
+  padding: 16px 12px;
+  color: var(--text-secondary);
+  font-family: var(--font-ui);
+  font-size: 13px;
+}
+
+.cmdk-group {
+  padding: 6px 0;
+}
+
+.cmdk-group [cmdk-group-heading] {
+  padding: 6px 10px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-disabled);
+}
+
+.cmdk-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  color: var(--text-primary);
+  outline: none;
+}
+
+.cmdk-item[data-selected='true'] {
+  background: var(--surface);
+}
+
+.cmdk-item-label {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.cmdk-item-meta {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-disabled);
+}
+
+.cmdk-sep {
+  height: 1px;
+  background: var(--border);
+  margin: 8px 2px;
+}

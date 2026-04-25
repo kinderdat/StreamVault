@@ -1,4 +1,5 @@
 import { ipcMain } from 'electron'
+
 import { getMonitorStatus, setPollingInterval, stopMonitor } from '../monitor'
 import { store } from './settings'
 

@@ -1,13 +1,14 @@
-import { spawn, ChildProcess } from 'child_process'
+import { ChildProcess, spawn } from 'child_process'
+import { BrowserWindow, Notification, app } from 'electron'
 import { existsSync, mkdirSync } from 'fs'
-import path from 'path'
-import { app, BrowserWindow, Notification } from 'electron'
 import { statSync } from 'fs'
-import { getBinPath, extractMetadata, extractThumbnail, captureSnapshot } from './ffmpeg'
+import { unlink } from 'fs/promises'
+import path from 'path'
+
 import { recordings } from './db'
+import { captureSnapshot, extractMetadata, extractThumbnail, getBinPath } from './ffmpeg'
 import { store } from './ipc/settings'
 import { findKickVodM3u8 } from './platforms'
-import { unlink } from 'fs/promises'
 import { markRecordingFinished } from './state'
 
 interface ActiveRecording {
@@ -57,30 +58,45 @@ function getQualityFormat(quality?: string, platform?: string): string {
   // Twitch HLS exposes named quality tiers — filter selectors don't work
   if (platform === 'twitch') {
     switch (quality) {
-      case '1080p60': return '1080p60/best'
-      case '1080':    return '1080p60/1080p/best'
-      case '720':     return '720p60/720p/best'
-      case '480':     return '480p/best'
-      default:        return 'best'
+      case '1080p60':
+        return '1080p60/best'
+      case '1080':
+        return '1080p60/1080p/best'
+      case '720':
+        return '720p60/720p/best'
+      case '480':
+        return '480p/best'
+      default:
+        return 'best'
     }
   }
   // Kick HLS also uses named quality levels
   if (platform === 'kick') {
     switch (quality) {
-      case '1080p60': return '1080p60/1080p/best'
-      case '1080':    return '1080p/best'
-      case '720':     return '720p60/720p/best'
-      case '480':     return '480p/best'
-      default:        return 'best'
+      case '1080p60':
+        return '1080p60/1080p/best'
+      case '1080':
+        return '1080p/best'
+      case '720':
+        return '720p60/720p/best'
+      case '480':
+        return '480p/best'
+      default:
+        return 'best'
     }
   }
   // YouTube and others support full yt-dlp format selectors
   switch (quality) {
-    case '1080p60': return 'bestvideo[height<=1080][fps<=60]+bestaudio/bestvideo[height<=1080]+bestaudio/best'
-    case '1080':    return 'bestvideo[height<=1080]+bestaudio/best'
-    case '720':     return 'bestvideo[height<=720]+bestaudio/best'
-    case '480':     return 'bestvideo[height<=480]+bestaudio/best'
-    default:        return 'bestvideo[height<=1080][fps<=60]+bestaudio/bestvideo[height<=1080]+bestaudio/best'
+    case '1080p60':
+      return 'bestvideo[height<=1080][fps<=60]+bestaudio/bestvideo[height<=1080]+bestaudio/best'
+    case '1080':
+      return 'bestvideo[height<=1080]+bestaudio/best'
+    case '720':
+      return 'bestvideo[height<=720]+bestaudio/best'
+    case '480':
+      return 'bestvideo[height<=480]+bestaudio/best'
+    default:
+      return 'bestvideo[height<=1080][fps<=60]+bestaudio/bestvideo[height<=1080]+bestaudio/best'
   }
 }
 
@@ -148,22 +164,27 @@ export async function startRecording(
 
   const args = [
     ...(supportsLiveFromStart ? ['--live-from-start'] : ['--no-live-from-start']),
-    '--hls-use-mpegts',        // MPEG-TS during download (crash-safe for live streams)
+    '--hls-use-mpegts', // MPEG-TS during download (crash-safe for live streams)
     '--no-part',
     '--newline',
     '--progress',
-    '--retries', String((store.get('maxRetries') as number | undefined) ?? 3),
-    '--fragment-retries', String((store.get('maxRetries') as number | undefined) ?? 3),
-    '--socket-timeout', '30',
+    '--retries',
+    String((store.get('maxRetries') as number | undefined) ?? 3),
+    '--fragment-retries',
+    String((store.get('maxRetries') as number | undefined) ?? 3),
+    '--socket-timeout',
+    '30',
     '--no-continue',
-    '--format', format,
-    '-o', tempPath,
+    '--format',
+    format,
+    '-o',
+    tempPath,
     channelUrl,
   ]
 
   // Pipe stdin so we can send 'q' for graceful stop; pipe stdout/stderr for progress parsing
   const proc = spawn(ytdlp, args, { stdio: ['pipe', 'pipe', 'pipe'] })
-  proc.stderr?.on('data', (d: Buffer) => console.log('[yt-dlp]', d.toString().trim()))
+  proc.stderr?.on('data', (d: Buffer) => console.info('[yt-dlp]', d.toString().trim()))
   // Must drain stdout — if we don't read it the process blocks on full pipe buffer
   // (actual progress parsing happens below on proc.stdout.on('data'))
 
@@ -171,13 +192,17 @@ export async function startRecording(
   let lastSize = 0
   let staleTicks = 0
   const watchdog = setInterval(() => {
-    if (!active.has(recordingId)) { clearInterval(watchdog); return }
+    if (!active.has(recordingId)) {
+      clearInterval(watchdog)
+      return
+    }
     try {
       const { size } = statSync(tempPath)
       if (size === lastSize) {
         staleTicks++
-        if (staleTicks >= 4) { // ~4 min of no growth
-          console.log(`[recorder] watchdog: no file growth for ${staleTicks} ticks, killing ${recordingId}`)
+        if (staleTicks >= 4) {
+          // ~4 min of no growth
+          console.warn(`[recorder] watchdog: no file growth for ${staleTicks} ticks, killing ${recordingId}`)
           clearInterval(watchdog)
           proc.kill()
         }
@@ -185,9 +210,18 @@ export async function startRecording(
         staleTicks = 0
         lastSize = size
       }
-    } catch { /* file not yet created */ }
+    } catch {
+      /* file not yet created */
+    }
   }, 60_000)
-  const rec: ActiveRecording = { process: proc, recordingId, streamerId, startedAt: Date.now(), outputPath: tempPath, platform }
+  const rec: ActiveRecording = {
+    process: proc,
+    recordingId,
+    streamerId,
+    startedAt: Date.now(),
+    outputPath: tempPath,
+    platform,
+  }
   active.set(recordingId, rec)
 
   // ── Early probe: 10s after start, run ffprobe on the temp .ts ──
@@ -214,7 +248,9 @@ export async function startRecording(
       const { size } = statSync(tempPath)
       recordings.update(recordingId, { file_size_bytes: size })
       send('recording:sizeUpdate', { recordingId, fileSize: size })
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
     const snapshotPath = getSnapshotPath(recordingId)
     const ok = await captureSnapshot(tempPath, snapshotPath)
     if (ok) {
@@ -246,7 +282,9 @@ export async function startRecording(
     if (rec.forceKillTimer) clearTimeout(rec.forceKillTimer) // cancel fallback if process exited cleanly
     active.delete(recordingId)
     const wasManualStop = manuallyStopped.delete(recordingId)
-    console.log(`[recorder] yt-dlp exited (code ${code}, manual=${wasManualStop}) for recording ${recordingId}`)
+    console.info(
+      `[recorder] yt-dlp exited (code ${code}, manual=${wasManualStop}) for recording ${recordingId}`,
+    )
     if (!wasManualStop && code !== 0) {
       // Unexpected error exit — set cooldown so monitor doesn't spam retries
       markRecordingFinished(streamerId)
@@ -261,8 +299,14 @@ export async function startRecording(
     } catch (err) {
       console.error('[recorder] onRecordingFinished threw unexpectedly:', err)
       try {
-        recordings.update(recordingId, { status: 'failed', completed_at: Date.now(), file_path: existsSync(finalPath) ? finalPath : existsSync(tempPath) ? tempPath : undefined })
-      } catch { /* db may also be broken — nothing left to do */ }
+        recordings.update(recordingId, {
+          status: 'failed',
+          completed_at: Date.now(),
+          file_path: existsSync(finalPath) ? finalPath : existsSync(tempPath) ? tempPath : undefined,
+        })
+      } catch {
+        /* db may also be broken — nothing left to do */
+      }
       send('recording:failed', { recordingId, error: String(err) })
     }
   })
@@ -278,11 +322,23 @@ export async function startRecording(
   })
 }
 
-function spawnFfmpegDownload(recordingId: number, streamerId: number, inputUrl: string, finalPath: string): void {
+function spawnFfmpegDownload(
+  recordingId: number,
+  streamerId: number,
+  inputUrl: string,
+  finalPath: string,
+): void {
   const ffmpeg = getBinPath('ffmpeg')
   // Download directly to mp4 with faststart for Kick VODs
   const proc = spawn(ffmpeg, ['-i', inputUrl, '-c', 'copy', '-movflags', '+faststart', '-y', finalPath])
-  active.set(recordingId, { process: proc, recordingId, streamerId, startedAt: Date.now(), outputPath: finalPath, platform: 'kick_vod' })
+  active.set(recordingId, {
+    process: proc,
+    recordingId,
+    streamerId,
+    startedAt: Date.now(),
+    outputPath: finalPath,
+    platform: 'kick_vod',
+  })
 
   proc.on('close', async () => {
     active.delete(recordingId)
@@ -301,23 +357,28 @@ function spawnFfmpegDownload(recordingId: number, streamerId: number, inputUrl: 
 function remuxWithTimeout(tsPath: string, finalPath: string, timeoutMs = 120_000): Promise<boolean> {
   return new Promise((resolve) => {
     const ffmpegBin = getBinPath('ffmpeg')
-    if (!existsSync(ffmpegBin) || !existsSync(tsPath)) { resolve(false); return }
+    if (!existsSync(ffmpegBin) || !existsSync(tsPath)) {
+      resolve(false)
+      return
+    }
 
-    console.log('[recorder] remuxing', tsPath, '->', finalPath)
-    const proc = spawn(ffmpegBin, [
-      '-i', tsPath,
-      '-c', 'copy',
-      '-avoid_negative_ts', '1',
-      '-y',
-      finalPath,
-    ], { stdio: ['ignore', 'ignore', 'pipe'] })
+    console.info('[recorder] remuxing', tsPath, '->', finalPath)
+    const proc = spawn(ffmpegBin, ['-i', tsPath, '-c', 'copy', '-avoid_negative_ts', '1', '-y', finalPath], {
+      stdio: ['ignore', 'ignore', 'pipe'],
+    })
 
     let stderr = ''
-    proc.stderr?.on('data', (d: Buffer) => { stderr += d.toString() })
+    proc.stderr?.on('data', (d: Buffer) => {
+      stderr += d.toString()
+    })
 
     const killTimer = setTimeout(() => {
       console.warn('[recorder] remux timed out after', timeoutMs / 1000, 's — killing ffmpeg')
-      try { proc.kill() } catch { /* already dead */ }
+      try {
+        proc.kill()
+      } catch {
+        /* already dead */
+      }
       resolve(false)
     }, timeoutMs)
     killTimer.unref()
@@ -325,7 +386,7 @@ function remuxWithTimeout(tsPath: string, finalPath: string, timeoutMs = 120_000
     proc.on('close', (code) => {
       clearTimeout(killTimer)
       if (code !== 0) console.error('[recorder] remux failed (exit', code, '):\n', stderr.slice(-800))
-      else console.log('[recorder] remux OK')
+      else console.info('[recorder] remux OK')
       resolve(code === 0)
     })
     proc.on('error', (err) => {
@@ -353,15 +414,25 @@ async function onRecordingFinished(recordingId: number, tsPath: string, finalPat
     // Remux .ts → target container (stream copy, no re-encode)
     const ok = await remuxWithTimeout(tsPath, finalPath)
     if (ok) {
-      try { await unlink(tsPath) } catch { /* ignore */ }
+      try {
+        await unlink(tsPath)
+      } catch {
+        /* ignore */
+      }
     } else {
       finalFile = tsPath
       recordings.update(recordingId, { file_path: tsPath })
       const ffmpegBin = getBinPath('ffmpeg')
-      console.error('[recorder] remux failed for recording', recordingId,
-        '— keeping .ts at', tsPath,
-        '| ffmpeg expected at:', ffmpegBin,
-        '| exists:', existsSync(ffmpegBin))
+      console.error(
+        '[recorder] remux failed for recording',
+        recordingId,
+        '— keeping .ts at',
+        tsPath,
+        '| ffmpeg expected at:',
+        ffmpegBin,
+        '| exists:',
+        existsSync(ffmpegBin),
+      )
       if (Notification.isSupported()) {
         new Notification({
           title: 'Recording saved as .ts (MP4 conversion failed)',
@@ -409,7 +480,7 @@ export async function stopRecording(recordingId: number): Promise<void> {
 
   const rec = active.get(recordingId)
   if (!rec) {
-    console.log(`[recorder] stopRecording: no active process for id ${recordingId}, marking failed`)
+    console.warn(`[recorder] stopRecording: no active process for id ${recordingId}, marking failed`)
     recordings.update(recordingId, { status: 'failed', completed_at: Date.now() })
     send('recording:failed', { recordingId, error: 'Process not found (orphaned recording)' })
     return
@@ -426,13 +497,19 @@ export async function stopRecording(recordingId: number): Promise<void> {
       rec.process.stdin.write('q\n')
       rec.process.stdin.end()
     }
-  } catch { /* stdin already closed */ }
+  } catch {
+    /* stdin already closed */
+  }
 
   // Step 2 — Force-kill watchdog: if process hasn't exited within 10 s, kill it hard
   const forceKillTimer = setTimeout(() => {
     if (!active.has(recordingId)) return // already exited cleanly via 'q'
-    console.log(`[recorder] force-killing ${recordingId} after 10s graceful timeout`)
-    try { rec.process.kill() } catch { /* already dead */ }
+    console.warn(`[recorder] force-killing ${recordingId} after 10s graceful timeout`)
+    try {
+      rec.process.kill()
+    } catch {
+      /* already dead */
+    }
     if (process.platform === 'win32' && rec.process.pid) {
       spawn('taskkill', ['/F', '/T', '/PID', String(rec.process.pid)], { stdio: 'ignore' }).unref()
     }
@@ -463,7 +540,9 @@ export function killAllProcesses(): void {
       } else {
         rec.process.kill('SIGKILL')
       }
-    } catch { /* already dead */ }
+    } catch {
+      /* already dead */
+    }
   }
   active.clear()
 }
@@ -473,9 +552,13 @@ export function getActiveIds(): number[] {
 }
 
 export function isActivelyRecording(_streamerId: number, recordingIds: number[]): boolean {
-  return recordingIds.some(id => active.has(id))
+  return recordingIds.some((id) => active.has(id))
 }
 
 export async function deleteRecordingFile(filePath: string): Promise<void> {
-  try { await unlink(filePath) } catch { /* already gone */ }
+  try {
+    await unlink(filePath)
+  } catch {
+    /* already gone */
+  }
 }

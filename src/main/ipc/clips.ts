@@ -1,29 +1,35 @@
 import { ipcMain, shell } from 'electron'
+import { existsSync } from 'fs'
 import fs from 'fs/promises'
 import path from 'path'
 import { z } from 'zod'
+
+import { extractClipSegment, getClipsOutputDir, getClipsThumbsDir } from '../clipExport'
 import { clips, recordings } from '../db'
 import { extractThumbnail } from '../ffmpeg'
-import { extractClipSegment, getClipsOutputDir, getClipsThumbsDir } from '../clipExport'
 
 const clipIdSchema = z.number().int().positive()
-const clipCreateSchema = z.object({
-  recording_id: clipIdSchema,
-  title: z.string().trim().min(1).max(180),
-  start_secs: z.number().min(0),
-  end_secs: z.number().min(0),
-}).refine((v) => v.end_secs > v.start_secs, {
-  message: 'Clip end must be greater than start',
-  path: ['end_secs'],
-})
-const clipUpdateSchema = z.object({
-  title: z.string().trim().min(1).max(180).optional(),
-  start_secs: z.number().min(0).optional(),
-  end_secs: z.number().min(0).optional(),
-  thumbnail_path: z.string().min(1).optional(),
-  file_path: z.string().min(1).optional(),
-  duration_secs: z.number().min(0).optional(),
-}).strict()
+const clipCreateSchema = z
+  .object({
+    recording_id: clipIdSchema,
+    title: z.string().trim().min(1).max(180),
+    start_secs: z.number().min(0),
+    end_secs: z.number().min(0),
+  })
+  .refine((v) => v.end_secs > v.start_secs, {
+    message: 'Clip end must be greater than start',
+    path: ['end_secs'],
+  })
+const clipUpdateSchema = z
+  .object({
+    title: z.string().trim().min(1).max(180).optional(),
+    start_secs: z.number().min(0).optional(),
+    end_secs: z.number().min(0).optional(),
+    thumbnail_path: z.string().min(1).optional(),
+    file_path: z.string().min(1).optional(),
+    duration_secs: z.number().min(0).optional(),
+  })
+  .strict()
 
 function normalizeFilePath(filePath: string): string {
   const normalized = path.normalize(filePath)
@@ -59,9 +65,15 @@ export function registerClipsIpc(): void {
       }
 
       const thumbPath = path.join(getClipsThumbsDir(), `clip_${id}_thumb.jpg`)
-      extractThumbnail(outPath, thumbPath, Math.min(2, duration_secs * 0.1))
-        .then(ok => { if (ok) clips.update(id, { thumbnail_path: thumbPath }) })
-        .catch(() => { /* ignore thumbnail failures */ })
+      if (existsSync(outPath)) {
+        extractThumbnail(outPath, thumbPath, Math.min(2, duration_secs * 0.1))
+          .then((ok) => {
+            if (ok) clips.update(id, { thumbnail_path: thumbPath })
+          })
+          .catch(() => {
+            /* ignore thumbnail failures */
+          })
+      }
     }
 
     return clips.getById(id)
@@ -75,7 +87,7 @@ export function registerClipsIpc(): void {
 
   ipcMain.handle('clips:delete', async (_e, id: number) => {
     const row = clips.delete(clipIdSchema.parse(id))
-    if (row?.file_path)      await fs.unlink(row.file_path).catch(() => {})
+    if (row?.file_path) await fs.unlink(row.file_path).catch(() => {})
     if (row?.thumbnail_path) await fs.unlink(row.thumbnail_path).catch(() => {})
   })
 

@@ -1,0 +1,18 @@
+/* ─── Titlebar ───────────────────────────────────────────────── */
+.titlebar {
+  height: var(--chrome-bar-height, 30px);
+  min-height: var(--chrome-bar-height, 30px);
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  padding: 0;
+  background: var(--black);
+  border-bottom: none;
+  z-index: var(--z-titlebar);
+  flex-shrink: 0;
+}
+.titlebar-drag {
+  flex: 1;
+  height: 100%;
+  -webkit-app-region: drag;
+}
