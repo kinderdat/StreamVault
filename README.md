@@ -13,7 +13,7 @@ Record, archive, and clip live streams from one desktop app.
 [![React](https://img.shields.io/badge/REACT-19.2.5-61DAFB?style=for-the-badge&logo=react&logoColor=61DAFB&labelColor=2d2d2d)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TYPESCRIPT-6.0.2-3178C6?style=for-the-badge&logo=typescript&logoColor=white&labelColor=2d2d2d)](https://www.typescriptlang.org)
 [![SQLite](https://img.shields.io/badge/SQLITE-12.9.0-003B57?style=for-the-badge&logo=sqlite&logoColor=white&labelColor=2d2d2d)](https://www.sqlite.org)
-[![Video.js](https://img.shields.io/badge/VIDEO.JS-8.23.7-FF0000?style=for-the-badge&logo=vlc&logoColor=white&labelColor=2d2d2d)](https://videojs.com)
+[![Video.js](https://img.shields.io/badge/VIDEO.JS-10.0.0B-FF0000?style=for-the-badge&logo=vlc&logoColor=white&labelColor=2d2d2d)](https://videojs.com)
 
 <br/>
 
