@@ -4,7 +4,7 @@
 
 # StreamVault
 
-**Automatic stream archiver for Twitch, YouTube, Kick and more.**  
+**Automatic stream archiver for Twitch, YouTube, Kick.**  
 Record, archive, and clip live streams from one desktop app.
 
 <br/>
