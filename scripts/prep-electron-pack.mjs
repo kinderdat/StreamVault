@@ -1,7 +1,3 @@
-/**
- * Ensures electron-builder can write to a clean dist/ on Windows. DLLs under
- * dist/win-unpacked stay locked if StreamVault or Explorer is using that tree.
- */
 import { spawnSync } from 'child_process'
 import fs from 'fs'
 import path from 'path'
